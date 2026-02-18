@@ -1,0 +1,43 @@
+{
+  "name": "music-box",
+  "version": "1.0.0",
+  "description": "Discord music bot with YouTube playback and search",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "deploy-commands": "tsx src/scripts/deploy-commands.ts",
+    "lint": "eslint src/ --fix",
+    "format": "prettier --write src/"
+  },
+  "keywords": [
+    "discord",
+    "music",
+    "bot",
+    "youtube"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@discordjs/voice": "^0.19.0",
+    "@snazzah/davey": "^0.1.9",
+    "discord.js": "^14.25.1",
+    "dotenv": "^17.3.1",
+    "ffmpeg-static": "^5.3.0",
+    "libsodium-wrappers": "^0.8.2",
+    "opusscript": "^0.0.8",
+    "winston": "^3.19.0",
+    "youtube-dl-exec": "^3.1.1",
+    "youtube-sr": "^4.3.12"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3",
+    "eslint": "^10.0.0",
+    "prettier": "^3.8.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}
