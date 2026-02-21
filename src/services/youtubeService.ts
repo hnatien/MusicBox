@@ -11,28 +11,34 @@ export interface AudioStreamResult {
     stream: Readable;
 }
 
-// Simple TTL cache for song metadata
 interface CacheEntry {
     song: Song;
     streamUrl?: string;
     expiresAt: number;
 }
 
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const CACHE_TTL_MS = 60 * 60 * 1000;
 const MAX_CACHE_SIZE = 500;
 const metadataCache = new Map<string, CacheEntry>();
 
-// Resolve ffmpeg path: prefer ffmpeg-static, fallback to system ffmpeg
 let ffmpegBinary = 'ffmpeg';
 try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const ffmpegStatic = await import('ffmpeg-static');
     const resolved = ffmpegStatic.default ?? ffmpegStatic;
     if (typeof resolved === 'string') {
         ffmpegBinary = resolved;
     }
 } catch {
-    // ffmpeg-static not available, use system ffmpeg
+}
+
+let ytdlpBinary = 'yt-dlp';
+try {
+    const ytdl = await import('youtube-dl-exec') as any;
+    const constants = ytdl.constants || ytdl.default?.constants;
+    if (constants?.YOUTUBE_DL_PATH) {
+        ytdlpBinary = constants.YOUTUBE_DL_PATH;
+    }
+} catch {
 }
 
 function cleanCache(): void {
@@ -44,24 +50,17 @@ function cleanCache(): void {
     }
 }
 
-/**
- * Build authentication flags for yt-dlp CLI.
- * Prefers --cookies-from-browser (automatic), falls back to manual cookie header.
- */
 function getAuthFlags(): string[] {
     const flags: string[] = [];
 
-    // Use Node.js as JS runtime for yt-dlp-ejs (YouTube deciphering)
     flags.push('--js-runtimes', 'node');
 
-    // Prefer automatic cookie extraction from browser
-    const browser = process.env.YOUTUBE_BROWSER; // e.g. "chrome", "edge", "brave", "firefox"
+    const browser = process.env.YOUTUBE_BROWSER;
     if (browser) {
         flags.push('--cookies-from-browser', browser);
         return flags;
     }
 
-    // Fallback: manual cookie from .env
     const rawCookie = process.env.YOUTUBE_COOKIE;
     const cookie = rawCookie?.replace(/^["']|["']$/g, '').trim();
     if (cookie) {
@@ -71,9 +70,6 @@ function getAuthFlags(): string[] {
     return flags;
 }
 
-/**
- * Search YouTube by query. Uses youtube-sr (no auth needed).
- */
 export async function searchByQuery(query: string, requestedBy: string): Promise<Song[]> {
     const results = await YouTube.search(query, {
         limit: SEARCH_RESULTS_COUNT,
@@ -91,9 +87,6 @@ export async function searchByQuery(query: string, requestedBy: string): Promise
     }));
 }
 
-/**
- * Get song metadata from a YouTube URL using yt-dlp --dump-single-json.
- */
 export async function getInfoByUrl(url: string, requestedBy: string): Promise<Song> {
     if (!isValidYouTubeUrl(url)) {
         throw new Error('Invalid YouTube URL');
@@ -117,7 +110,7 @@ export async function getInfoByUrl(url: string, requestedBy: string): Promise<So
             ...cookieFlags,
         ];
 
-        const proc = spawn('yt-dlp', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+        const proc = spawn(ytdlpBinary, args, { stdio: ['ignore', 'pipe', 'pipe'] });
         let stdout = '';
         let stderr = '';
 
@@ -137,11 +130,10 @@ export async function getInfoByUrl(url: string, requestedBy: string): Promise<So
         });
 
         proc.on('error', (err: Error) => {
-            reject(new Error(`Failed to spawn yt-dlp: ${err.message}. Install it: pip install yt-dlp`));
+            reject(new Error(`Failed to spawn yt-dlp (${ytdlpBinary}): ${err.message}. Ensure it is installed: pip install yt-dlp`));
         });
     });
 
-    // Extract direct audio stream URL for cache (avoids a second yt-dlp call later)
     const streamUrl = (result.url as string) || undefined;
 
     const song: Song = {
@@ -161,7 +153,6 @@ export async function getInfoByUrl(url: string, requestedBy: string): Promise<So
     const cacheEntry: CacheEntry = { song, streamUrl, expiresAt: Date.now() + CACHE_TTL_MS };
     metadataCache.set(url, cacheEntry);
 
-    // Also cache under canonical URL so stream lookup matches
     if (song.url !== url) {
         metadataCache.set(song.url, cacheEntry);
     }
@@ -169,9 +160,6 @@ export async function getInfoByUrl(url: string, requestedBy: string): Promise<So
     return song;
 }
 
-/**
- * Get all songs from a YouTube playlist.
- */
 export async function getPlaylistInfo(url: string, requestedBy: string): Promise<{ title: string; songs: Song[] }> {
     const cookieFlags = getAuthFlags();
 
@@ -185,7 +173,7 @@ export async function getPlaylistInfo(url: string, requestedBy: string): Promise
             ...cookieFlags,
         ];
 
-        const proc = spawn('yt-dlp', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+        const proc = spawn(ytdlpBinary, args, { stdio: ['ignore', 'pipe', 'pipe'] });
         let stdout = '';
         let stderr = '';
 
@@ -205,7 +193,7 @@ export async function getPlaylistInfo(url: string, requestedBy: string): Promise
         });
 
         proc.on('error', (err: Error) => {
-            reject(new Error(`Failed to spawn yt-dlp: ${err.message}`));
+            reject(new Error(`Failed to spawn yt-dlp (${ytdlpBinary}): ${err.message}`));
         });
     });
 
@@ -227,9 +215,6 @@ export async function getPlaylistInfo(url: string, requestedBy: string): Promise
     return { title: playlistTitle, songs };
 }
 
-/**
- * Get an audio stream from a YouTube URL using yt-dlp + ffmpeg.
- */
 export async function getAudioStream(url: string): Promise<AudioStreamResult> {
     let lastError: unknown;
     const sanitizedUrl = url.trim();
@@ -252,9 +237,6 @@ export async function getAudioStream(url: string): Promise<AudioStreamResult> {
     throw new Error(`Failed to get audio stream after ${STREAM_RETRY_ATTEMPTS} attempts: ${lastError}`);
 }
 
-/**
- * Resolve direct audio URL from YouTube using yt-dlp.
- */
 function resolveAudioUrl(url: string): Promise<string> {
     return new Promise((resolve, reject) => {
         const cookieFlags = getAuthFlags();
@@ -268,7 +250,7 @@ function resolveAudioUrl(url: string): Promise<string> {
             ...cookieFlags,
         ];
 
-        const proc = spawn('yt-dlp', ytdlpArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
+        const proc = spawn(ytdlpBinary, ytdlpArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
 
         let stdout = '';
         let stderr = '';
@@ -285,15 +267,11 @@ function resolveAudioUrl(url: string): Promise<string> {
         });
 
         proc.on('error', (err: Error) => {
-            reject(new Error(`Failed to spawn yt-dlp: ${err.message}. Install it: pip install yt-dlp`));
+            reject(new Error(`Failed to spawn yt-dlp (${ytdlpBinary}): ${err.message}. Ensure it is installed: pip install yt-dlp`));
         });
     });
 }
 
-/**
- * Spawn ffmpeg to convert a direct audio URL into raw s16le PCM stream.
- * Uses minimal analyzeduration/probesize for near-instant startup.
- */
 function spawnFfmpegStream(audioUrl: string): Readable {
     const ffmpegArgs = [
         '-reconnect', '1',
@@ -325,7 +303,6 @@ function spawnFfmpegStream(audioUrl: string): Readable {
         passThrough.end();
     });
 
-    // Clean up ffmpeg when the consumer destroys the stream
     passThrough.on('close', () => {
         if (!ffmpegProc.killed) {
             ffmpegProc.kill('SIGKILL');
@@ -335,18 +312,13 @@ function spawnFfmpegStream(audioUrl: string): Readable {
     return passThrough;
 }
 
-/**
- * Get audio stream: use cached stream URL when available, otherwise resolve via yt-dlp.
- */
 async function createYtdlpStream(url: string): Promise<Readable> {
-    // Check cache for pre-resolved stream URL (populated by getInfoByUrl)
     const cached = metadataCache.get(url);
     if (cached?.streamUrl && cached.expiresAt > Date.now()) {
         logger.debug(`Stream URL cache hit for: ${url}`);
         return spawnFfmpegStream(cached.streamUrl);
     }
 
-    // No cache — resolve via yt-dlp
     const audioUrl = await resolveAudioUrl(url);
     return spawnFfmpegStream(audioUrl);
 }

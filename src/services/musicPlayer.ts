@@ -48,7 +48,6 @@ export async function play(
     const queue = queueManager.getQueue(guildId);
     if (!queue) return;
 
-    // Clear inactivity timer immediately to prevent race conditions during async operations
     if (queue.inactivityTimer) {
         clearTimeout(queue.inactivityTimer);
         queue.inactivityTimer = null;
@@ -56,7 +55,6 @@ export async function play(
 
     stopProgressUpdate(guildId);
 
-    // Remove stale event listeners from previous play() calls to prevent leaks
     queue.player.removeAllListeners(AudioPlayerStatus.Idle);
     queue.player.removeAllListeners('error');
 
@@ -145,7 +143,6 @@ export function skip(guildId: string): boolean {
     if (!queue) return false;
 
     stopProgressUpdate(guildId);
-    // Stopping the player triggers the Idle event, which calls play() for next song
     queue.player.stop();
     return true;
 }
@@ -188,7 +185,6 @@ function startProgressUpdate(guildId: string): void {
         clearInterval(queue.progressInterval);
     }
 
-    // Update every 15 seconds (to avoid Discord rate limits)
     queue.progressInterval = setInterval(async () => {
         if (!queue.isPlaying || queue.isPaused || !queue.currentSong || !queue.nowPlayingMessage) {
             stopProgressUpdate(guildId);
@@ -204,7 +200,6 @@ function startProgressUpdate(guildId: string): void {
             elapsedSeconds = Math.floor((Date.now() - (queue.playStartTime || Date.now())) / 1000);
         }
 
-        // Don't update if we've reached the end (it will be handled by Idle event)
         if (elapsedSeconds >= queue.currentSong.duration) {
             stopProgressUpdate(guildId);
             return;
@@ -212,7 +207,6 @@ function startProgressUpdate(guildId: string): void {
 
         const embed = createNowPlayingEmbed(queue.currentSong, elapsedSeconds);
         await queue.nowPlayingMessage.edit({ embeds: [embed] }).catch(() => {
-            // If editing fails (e.g. message deleted), stop updates
             stopProgressUpdate(guildId);
         });
     }, 15_000);
@@ -276,6 +270,5 @@ async function sendToTextChannel(
             await channel.send({ embeds: [embed] });
         }
     } catch {
-        // Silently fail — we don't want error reporting to cause errors
     }
 }

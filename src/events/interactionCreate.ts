@@ -3,7 +3,6 @@ import type { BotEvent } from './index.js';
 import type { MusicClient } from '../core/client.js';
 import { logger } from '../core/logger.js';
 
-// Cooldown tracker: Map<commandName, Map<userId, expirationTimestamp>>
 const cooldowns = new Collection<string, Collection<string, number>>();
 
 const interactionCreateEvent: BotEvent<'interactionCreate'> = {
@@ -19,7 +18,6 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
             return;
         }
 
-        // Cooldown check
         const cooldownAmount = (command.cooldown ?? 3) * 1000;
 
         if (!cooldowns.has(command.data.name)) {

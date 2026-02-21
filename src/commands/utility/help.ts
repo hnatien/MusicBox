@@ -27,7 +27,11 @@ const helpCommand: Command = {
                 },
                 {
                     name: '🔧 Utility',
-                    value: ['`/ping` — Show bot latency', '`/help` — Show this help message'].join('\n'),
+                    value: [
+                        '`/ping` — Show bot latency',
+                        '`/help` — Show this help message',
+                        '`/update` — Xem những cập nhật mới nhất',
+                    ].join('\n'),
                 },
             )
             .setFooter({ text: 'Music Box • Made with ❤️' });
