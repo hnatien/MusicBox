@@ -38,6 +38,19 @@ export function createPlaylistAddedEmbed(title: string, count: number): EmbedBui
         .setDescription(`**${title}**\n${EMOJIS.MUSIC} \`${count}\` songs added to queue`);
 }
 
+export function createMixStartedEmbed(title: string, firstSong: Song, totalCount: number): EmbedBuilder {
+    return new EmbedBuilder()
+        .setColor(COLORS.NOW_PLAYING)
+        .setTitle(`${EMOJIS.MUSIC} Mix Loaded`)
+        .setDescription(
+            `**${title}**\n` +
+            `\`${totalCount}\` songs · Next tracks will auto-queue\n\n` +
+            `Now playing: **[${firstSong.title}](${firstSong.url})**\n` +
+            `${firstSong.channelName} · \`${firstSong.durationFormatted}\``,
+        )
+        .setThumbnail(firstSong.thumbnail || null);
+}
+
 export function createSearchEmbed(query: string, songs: Song[]): EmbedBuilder {
     const description = songs
         .map(

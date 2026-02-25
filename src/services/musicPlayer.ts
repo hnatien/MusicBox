@@ -58,7 +58,8 @@ export async function play(
     queue.player.removeAllListeners(AudioPlayerStatus.Idle);
     queue.player.removeAllListeners('error');
 
-    const song = queueManager.getNextSong(guildId);
+    const queueSong = queueManager.getNextSong(guildId);
+    let song = queueSong ?? queueManager.getNextMixSong(guildId);
 
     if (!song) {
         queue.currentSong = null;

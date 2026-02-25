@@ -3,8 +3,8 @@ import type { Command } from '../../models/command.js';
 import * as youtubeService from '../../services/youtubeService.js';
 import * as queueManager from '../../services/queueManager.js';
 import * as musicPlayer from '../../services/musicPlayer.js';
-import { isValidYouTubeUrl, isPlaylistUrl } from '../../utils/validation.js';
-import { createSongAddedEmbed, createErrorEmbed, createNowPlayingEmbed, createPlaylistAddedEmbed } from '../../utils/embed.js';
+import { isValidYouTubeUrl, isPlaylistUrl, isMixUrl } from '../../utils/validation.js';
+import { createSongAddedEmbed, createErrorEmbed, createNowPlayingEmbed, createPlaylistAddedEmbed, createMixStartedEmbed } from '../../utils/embed.js';
 import { MAX_QUERY_LENGTH } from '../../utils/constants.js';
 import { logger } from '../../core/logger.js';
 
@@ -53,6 +53,31 @@ const playCommand: Command = {
                     voiceChannelId: voiceChannel.id,
                     connection,
                 });
+            }
+
+            if (isValidYouTubeUrl(query) && isMixUrl(query)) {
+                const { title, songs } = await youtubeService.getPlaylistInfo(query, interaction.user.id);
+
+                if (songs.length === 0) {
+                    await interaction.editReply({ embeds: [createErrorEmbed('This mix is empty or unavailable.')] });
+                    return;
+                }
+
+                const firstSong = songs[0];
+                const remainingSongs = songs.slice(1);
+
+                queueManager.setMixContext(interaction.guildId!, remainingSongs, title);
+                queueManager.addSong(interaction.guildId!, firstSong);
+
+                const embed = createMixStartedEmbed(title, firstSong, songs.length);
+
+                if (isNewQueue || !queue.isPlaying) {
+                    const message = await interaction.editReply({ embeds: [embed] });
+                    await musicPlayer.play(interaction.guildId!, client, message);
+                } else {
+                    await interaction.editReply({ embeds: [embed] });
+                }
+                return;
             }
 
             if (isValidYouTubeUrl(query) && isPlaylistUrl(query)) {

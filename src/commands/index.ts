@@ -7,9 +7,6 @@ import { logger } from '../core/logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-/**
- * Recursively load all command files from subdirectories and register them on the client.
- */
 export async function loadCommands(client: MusicClient): Promise<void> {
     const commandDirs = readdirSync(__dirname, { withFileTypes: true })
         .filter((entry) => entry.isDirectory())

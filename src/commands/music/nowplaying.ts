@@ -21,7 +21,6 @@ const nowPlayingCommand: Command = {
             return;
         }
 
-        // Use playbackDuration from the resource for accurate elapsed time (accounts for pause)
         let elapsed = 0;
         if (queue.player.state.status === AudioPlayerStatus.Playing || queue.player.state.status === AudioPlayerStatus.Paused) {
             const state = queue.player.state as AudioPlayerPlayingState;

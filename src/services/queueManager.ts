@@ -105,9 +105,38 @@ export function clearQueue(guildId: string): void {
     queue.isPaused = false;
     queue.playStartTime = null;
     queue.nowPlayingMessage = undefined;
+    queue.mixContext = undefined;
 }
 
 export function getQueueSize(guildId: string): number {
     const queue = queues.get(guildId);
     return queue?.songs.length ?? 0;
+}
+
+export function setMixContext(guildId: string, songs: Song[], title: string): void {
+    const queue = queues.get(guildId);
+    if (!queue) return;
+    queue.mixContext = { songs, index: 0, title };
+}
+
+export function getNextMixSong(guildId: string): Song | undefined {
+    const queue = queues.get(guildId);
+    if (!queue?.mixContext) return undefined;
+
+    const { songs, index } = queue.mixContext;
+    if (index >= songs.length) {
+        queue.mixContext = undefined;
+        return undefined;
+    }
+
+    const song = songs[index];
+    queue.mixContext.index = index + 1;
+    return song;
+}
+
+export function clearMixContext(guildId: string): void {
+    const queue = queues.get(guildId);
+    if (queue) {
+        queue.mixContext = undefined;
+    }
 }

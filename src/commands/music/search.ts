@@ -117,7 +117,6 @@ const searchCommand: Command = {
                     });
                 }
             } catch {
-                // Timeout — remove components
                 await interaction.editReply({
                     embeds: [createErrorEmbed('Selection timed out. Please try again.')],
                     components: [],

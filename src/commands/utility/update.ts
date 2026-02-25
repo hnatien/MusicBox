@@ -2,15 +2,6 @@ import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../models/command.js';
 import { COLORS } from '../../utils/constants.js';
 
-/**
- * Changelog entries — newest first.
- * Add new entries at the TOP of this array.
- *
- * Each entry groups changes by category:
- *   added     — new features / commands
- *   improved  — enhancements to existing behaviour
- *   fixed     — bug fixes
- */
 interface ChangelogEntry {
     version: string;
     date: string;
@@ -61,7 +52,6 @@ const CATEGORY_LABELS: { key: keyof Pick<ChangelogEntry, 'added' | 'improved' | 
     { key: 'fixed', label: '🐛 Fixed' },
 ];
 
-/** How many versions to show by default */
 const DEFAULT_DISPLAY_COUNT = 3;
 
 const updateCommand: Command = {
