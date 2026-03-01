@@ -10,6 +10,14 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
     execute: async (client, interaction) => {
         if (!interaction.isChatInputCommand()) return;
 
+        if (!interaction.guildId) {
+            await interaction.reply({
+                content: '❌ Commands can only be used in a server.',
+                ephemeral: true,
+            });
+            return;
+        }
+
         const musicClient = client as MusicClient;
         const command = musicClient.commands.get(interaction.commandName);
 

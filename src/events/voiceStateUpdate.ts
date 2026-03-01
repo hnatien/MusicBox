@@ -18,10 +18,13 @@ const voiceStateUpdateEvent: BotEvent<'voiceStateUpdate'> = {
 
         const nonBotMembers = botVoiceChannel.members.filter((member) => !member.user.bot);
 
-        if (nonBotMembers.size === 0 && !queue.isPlaying) {
+        if (nonBotMembers.size === 0) {
             logger.info(`Voice channel empty in guild ${guildId}, disconnecting in 30s`);
 
             startInactivityTimer(guildId, 30);
+        } else if (queue.inactivityTimer) {
+            clearTimeout(queue.inactivityTimer);
+            queue.inactivityTimer = null;
         }
     },
 };

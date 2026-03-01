@@ -111,10 +111,10 @@ export async function getInfoByUrl(url: string, requestedBy: string): Promise<So
         ];
 
         const proc = spawn(ytdlpBinary, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-        let stdout = '';
+        const stdoutChunks: Buffer[] = [];
         let stderr = '';
 
-        proc.stdout!.on('data', (d: Buffer) => { stdout += d.toString(); });
+        proc.stdout!.on('data', (d: Buffer) => { stdoutChunks.push(d); });
         proc.stderr!.on('data', (d: Buffer) => { stderr += d.toString(); });
 
         proc.on('close', (code) => {
@@ -123,7 +123,7 @@ export async function getInfoByUrl(url: string, requestedBy: string): Promise<So
                 return;
             }
             try {
-                resolve(JSON.parse(stdout));
+                resolve(JSON.parse(Buffer.concat(stdoutChunks).toString()));
             } catch {
                 reject(new Error('Failed to parse yt-dlp JSON output'));
             }
@@ -170,14 +170,15 @@ export async function getPlaylistInfo(url: string, requestedBy: string): Promise
             '--flat-playlist',
             '--no-warnings',
             '--no-check-certificates',
+            '--playlist-items', '1:100',
             ...cookieFlags,
         ];
 
         const proc = spawn(ytdlpBinary, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-        let stdout = '';
+        const stdoutChunks: Buffer[] = [];
         let stderr = '';
 
-        proc.stdout!.on('data', (d: Buffer) => { stdout += d.toString(); });
+        proc.stdout!.on('data', (d: Buffer) => { stdoutChunks.push(d); });
         proc.stderr!.on('data', (d: Buffer) => { stderr += d.toString(); });
 
         proc.on('close', (code) => {
@@ -186,7 +187,7 @@ export async function getPlaylistInfo(url: string, requestedBy: string): Promise
                 return;
             }
             try {
-                resolve(JSON.parse(stdout));
+                resolve(JSON.parse(Buffer.concat(stdoutChunks).toString()));
             } catch {
                 reject(new Error('Failed to parse yt-dlp playlist JSON output'));
             }
@@ -252,13 +253,14 @@ function resolveAudioUrl(url: string): Promise<string> {
 
         const proc = spawn(ytdlpBinary, ytdlpArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
 
-        let stdout = '';
+        const stdoutChunks: Buffer[] = [];
         let stderr = '';
 
-        proc.stdout!.on('data', (d: Buffer) => { stdout += d.toString().trim(); });
+        proc.stdout!.on('data', (d: Buffer) => { stdoutChunks.push(d); });
         proc.stderr!.on('data', (d: Buffer) => { stderr += d.toString(); });
 
         proc.on('close', (code) => {
+            const stdout = Buffer.concat(stdoutChunks).toString().trim();
             if (code !== 0 || !stdout) {
                 reject(new Error(`yt-dlp failed (code ${code}): ${stderr || 'no URL returned'}`));
                 return;
@@ -294,6 +296,10 @@ function spawnFfmpegStream(audioUrl: string): Readable {
     const passThrough = new PassThrough();
 
     ffmpegProc.stdout!.pipe(passThrough);
+
+    ffmpegProc.stdout!.on('error', (err: Error) => {
+        passThrough.destroy(err);
+    });
 
     ffmpegProc.on('error', (err: Error) => {
         passThrough.destroy(err);

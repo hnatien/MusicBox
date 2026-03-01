@@ -60,7 +60,7 @@ const searchCommand: Command = {
 
             // Build select menu
             const selectMenu = new StringSelectMenuBuilder()
-                .setCustomId('search-select')
+                .setCustomId(`search-select-${interaction.id}`)
                 .setPlaceholder('Choose a song...')
                 .addOptions(
                     results.map((song, index) =>

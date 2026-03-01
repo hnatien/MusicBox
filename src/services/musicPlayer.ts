@@ -44,9 +44,16 @@ export async function play(
     guildId: string,
     client: MusicClient,
     existingMessage?: Message,
+    _skipCount = 0,
 ): Promise<void> {
     const queue = queueManager.getQueue(guildId);
     if (!queue) return;
+
+    if (_skipCount > 10) {
+        logger.warn(`Too many consecutive failures for guild ${guildId}, stopping`);
+        stop(guildId);
+        return;
+    }
 
     if (queue.inactivityTimer) {
         clearTimeout(queue.inactivityTimer);
@@ -91,7 +98,7 @@ export async function play(
         const onIdle = () => {
             queue.player.removeListener(AudioPlayerStatus.Idle, onIdle);
             stopProgressUpdate(guildId);
-            play(guildId, client).catch((error) => {
+            play(guildId, client, undefined, 0).catch((error) => {
                 logger.error(`Auto-play next song failed for guild ${guildId}`, { error });
             });
         };
@@ -108,7 +115,7 @@ export async function play(
 
             sendToTextChannel(client, queue.textChannelId, song.title);
 
-            play(guildId, client).catch((err) => {
+            play(guildId, client, undefined, _skipCount + 1).catch((err) => {
                 const skipErrorMsg = err instanceof Error ? err.message : String(err);
                 logger.error(`Skip after error failed for guild ${guildId}: ${skipErrorMsg}`);
             });
@@ -135,7 +142,7 @@ export async function play(
         logger.error(`Failed to play song "${song.title}" in guild ${guildId}: ${errorMsg}`);
 
         sendToTextChannel(client, queue.textChannelId, song.title);
-        await play(guildId, client);
+        await play(guildId, client, undefined, _skipCount + 1);
     }
 }
 
@@ -153,8 +160,6 @@ export function stop(guildId: string): void {
     if (!queue) return;
 
     stopProgressUpdate(guildId);
-    queueManager.clearQueue(guildId);
-    queue.player.stop(true);
     queueManager.deleteQueue(guildId);
 }
 
