@@ -7,6 +7,7 @@ const readyEvent: BotEvent<'ready'> = {
     execute: async (client) => {
         logger.info(`Ready! Logged in as ${client.user?.tag} (${client.user?.id})`);
         logger.info(`Serving ${client.guilds.cache.size} guild(s)`);
+        client.updatePresence();
     },
 };
 
