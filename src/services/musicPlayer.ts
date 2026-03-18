@@ -14,8 +14,9 @@ import * as queueManager from './queueManager.js';
 import { getAudioStream } from './youtubeService.js';
 import { logger } from '../core/logger.js';
 import { config } from '../config/environment.js';
-import { createNowPlayingEmbed, createErrorEmbed } from '../utils/embed.js';
-import { MAX_RECONNECT_ATTEMPTS } from '../utils/constants.js';
+import { createNowPlayingEmbed, createErrorEmbed, createSuccessEmbed } from '../utils/embed.js';
+import { createNowPlayingButtons } from '../utils/components.js';
+import { EMOJIS } from '../utils/constants.js';
 import type { MusicClient } from '../core/client.js';
 
 export function joinChannel(channel: VoiceBasedChannel): VoiceConnection {
@@ -65,6 +66,11 @@ export async function play(
     queue.player.removeAllListeners(AudioPlayerStatus.Idle);
     queue.player.removeAllListeners('error');
 
+    // Clear buttons from previous Now Playing message
+    if (queue.nowPlayingMessage && queue.nowPlayingMessage !== existingMessage) {
+        queue.nowPlayingMessage.edit({ components: [] }).catch(() => { });
+    }
+
     const queueSong = queueManager.getNextSong(guildId);
     let song = queueSong ?? queueManager.getNextMixSong(guildId);
 
@@ -73,6 +79,12 @@ export async function play(
         queue.isPlaying = false;
         queue.playStartTime = null;
         queue.nowPlayingMessage = undefined;
+
+        const textChannel = client.channels.cache.get(queue.textChannelId) as TextBasedChannel | undefined;
+        if (textChannel && 'send' in textChannel) {
+            const embed = createSuccessEmbed(`${EMOJIS.QUEUE} Queue ended. Use \`/play\` to add more songs.`);
+            await textChannel.send({ embeds: [embed] }).catch(() => { });
+        }
 
         startInactivityTimer(guildId);
         return;
@@ -130,7 +142,8 @@ export async function play(
             const textChannel = client.channels.cache.get(queue.textChannelId) as TextBasedChannel | undefined;
             if (textChannel && 'send' in textChannel) {
                 const embed = createNowPlayingEmbed(song, 0);
-                const message = await textChannel.send({ embeds: [embed] }).catch(() => { });
+                const buttons = createNowPlayingButtons(guildId, false);
+                const message = await textChannel.send({ embeds: [embed], components: [buttons] }).catch(() => { });
                 if (message) {
                     queue.nowPlayingMessage = message;
                     startProgressUpdate(guildId);
@@ -159,6 +172,9 @@ export function stop(guildId: string): void {
     const queue = queueManager.getQueue(guildId);
     if (!queue) return;
 
+    // Clear buttons from Now Playing message
+    queue.nowPlayingMessage?.edit({ components: [] }).catch(() => { });
+
     stopProgressUpdate(guildId);
     queueManager.deleteQueue(guildId);
 }
@@ -181,6 +197,36 @@ export function resume(guildId: string): boolean {
     queue.isPaused = false;
     startProgressUpdate(guildId);
     return true;
+}
+
+export function getElapsedSeconds(guildId: string): number {
+    const queue = queueManager.getQueue(guildId);
+    if (!queue) return 0;
+
+    if (
+        queue.player.state.status === AudioPlayerStatus.Playing ||
+        queue.player.state.status === AudioPlayerStatus.Paused
+    ) {
+        const state = queue.player.state as AudioPlayerPlayingState;
+        return Math.floor(state.resource.playbackDuration / 1000);
+    }
+
+    if (queue.playStartTime) {
+        return Math.floor((Date.now() - queue.playStartTime) / 1000);
+    }
+
+    return 0;
+}
+
+export async function updateNowPlayingMessage(guildId: string): Promise<void> {
+    const queue = queueManager.getQueue(guildId);
+    if (!queue?.nowPlayingMessage || !queue.currentSong) return;
+
+    const elapsed = getElapsedSeconds(guildId);
+    const embed = createNowPlayingEmbed(queue.currentSong, elapsed, queue.isPaused);
+    const buttons = createNowPlayingButtons(guildId, queue.isPaused);
+
+    await queue.nowPlayingMessage.edit({ embeds: [embed], components: [buttons] }).catch(() => { });
 }
 
 function startProgressUpdate(guildId: string): void {
@@ -212,7 +258,8 @@ function startProgressUpdate(guildId: string): void {
         }
 
         const embed = createNowPlayingEmbed(queue.currentSong, elapsedSeconds);
-        await queue.nowPlayingMessage.edit({ embeds: [embed] }).catch(() => {
+        const buttons = createNowPlayingButtons(guildId, queue.isPaused);
+        await queue.nowPlayingMessage.edit({ embeds: [embed], components: [buttons] }).catch(() => {
             stopProgressUpdate(guildId);
         });
     }, 15_000);

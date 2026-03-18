@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { AudioPlayerStatus, type AudioPlayerPlayingState } from '@discordjs/voice';
 import type { Command } from '../../models/command.js';
 import * as queueManager from '../../services/queueManager.js';
+import * as musicPlayer from '../../services/musicPlayer.js';
 import { createNowPlayingEmbed, createErrorEmbed } from '../../utils/embed.js';
 
 const nowPlayingCommand: Command = {
@@ -21,15 +21,8 @@ const nowPlayingCommand: Command = {
             return;
         }
 
-        let elapsed = 0;
-        if (queue.player.state.status === AudioPlayerStatus.Playing || queue.player.state.status === AudioPlayerStatus.Paused) {
-            const state = queue.player.state as AudioPlayerPlayingState;
-            elapsed = Math.floor(state.resource.playbackDuration / 1000);
-        } else if (queue.playStartTime) {
-            elapsed = Math.floor((Date.now() - queue.playStartTime) / 1000);
-        }
-
-        const embed = createNowPlayingEmbed(queue.currentSong, elapsed);
+        const elapsed = musicPlayer.getElapsedSeconds(interaction.guildId!);
+        const embed = createNowPlayingEmbed(queue.currentSong, elapsed, queue.isPaused);
 
         await interaction.reply({ embeds: [embed] });
     },

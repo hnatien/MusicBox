@@ -57,7 +57,7 @@ const DEFAULT_DISPLAY_COUNT = 3;
 const updateCommand: Command = {
     data: new SlashCommandBuilder()
         .setName('update')
-        .setDescription('Xem những cập nhật mới nhất của bot'),
+        .setDescription('View the latest bot updates'),
     cooldown: 10,
 
     execute: async (interaction) => {
@@ -82,7 +82,7 @@ const updateCommand: Command = {
             .setTitle('Music Box — Changelog')
             .setDescription(description)
             .setFooter({
-                text: `Hiển thị ${entries.length}/${CHANGELOG.length} phiên bản`,
+                text: `Showing ${entries.length}/${CHANGELOG.length} versions`,
             })
             .setTimestamp();
 

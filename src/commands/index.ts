@@ -28,6 +28,7 @@ export async function loadCommands(client: MusicClient): Promise<void> {
                 continue;
             }
 
+            command.category = dir;
             client.commands.set(command.data.name, command);
             logger.info(`Loaded command: /${command.data.name}`);
         }

@@ -1,11 +1,13 @@
-import { GuildMember, SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../models/command.js';
 import * as youtubeService from '../../services/youtubeService.js';
 import * as queueManager from '../../services/queueManager.js';
 import * as musicPlayer from '../../services/musicPlayer.js';
 import { isValidYouTubeUrl, isPlaylistUrl, isMixUrl } from '../../utils/validation.js';
 import { createSongAddedEmbed, createErrorEmbed, createNowPlayingEmbed, createPlaylistAddedEmbed, createMixStartedEmbed } from '../../utils/embed.js';
+import { createNowPlayingButtons } from '../../utils/components.js';
 import { MAX_QUERY_LENGTH } from '../../utils/constants.js';
+import { requireVoiceChannel, requireBotPermissions } from '../../utils/guards.js';
 import { logger } from '../../core/logger.js';
 
 const playCommand: Command = {
@@ -18,25 +20,10 @@ const playCommand: Command = {
     cooldown: 3,
 
     execute: async (interaction, client) => {
-        const member = interaction.member as GuildMember;
-        const voiceChannel = member.voice.channel;
+        const voiceChannel = await requireVoiceChannel(interaction);
+        if (!voiceChannel) return;
 
-        if (!voiceChannel) {
-            await interaction.reply({
-                embeds: [createErrorEmbed('You must be in a voice channel to use this command.')],
-                ephemeral: true,
-            });
-            return;
-        }
-
-        const permissions = voiceChannel.permissionsFor(interaction.client.user!);
-        if (!permissions?.has(['Connect', 'Speak'])) {
-            await interaction.reply({
-                embeds: [createErrorEmbed('I need **Connect** and **Speak** permissions in your voice channel.')],
-                ephemeral: true,
-            });
-            return;
-        }
+        if (!(await requireBotPermissions(interaction, voiceChannel))) return;
 
         const query = interaction.options.getString('query', true).slice(0, MAX_QUERY_LENGTH);
 
@@ -128,7 +115,8 @@ const playCommand: Command = {
 
             if (isNewQueue || !queue.isPlaying) {
                 const embed = createNowPlayingEmbed(song, 0);
-                const message = await interaction.editReply({ embeds: [embed] });
+                const buttons = createNowPlayingButtons(interaction.guildId!, false);
+                const message = await interaction.editReply({ embeds: [embed], components: [buttons] });
                 await musicPlayer.play(interaction.guildId!, client, message);
             } else {
                 await interaction.editReply({ embeds: [createSongAddedEmbed(song, position)] });

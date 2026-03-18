@@ -2,23 +2,31 @@ import { Collection } from 'discord.js';
 import type { BotEvent } from './index.js';
 import type { MusicClient } from '../core/client.js';
 import { logger } from '../core/logger.js';
+import { createErrorEmbed } from '../utils/embed.js';
+import { handleButtonInteraction } from './handleButtons.js';
 
 const cooldowns = new Collection<string, Collection<string, number>>();
 
 const interactionCreateEvent: BotEvent<'interactionCreate'> = {
     name: 'interactionCreate',
     execute: async (client, interaction) => {
+        const musicClient = client as MusicClient;
+
+        if (interaction.isButton()) {
+            await handleButtonInteraction(musicClient, interaction);
+            return;
+        }
+
         if (!interaction.isChatInputCommand()) return;
 
         if (!interaction.guildId) {
             await interaction.reply({
-                content: '❌ Commands can only be used in a server.',
+                embeds: [createErrorEmbed('Commands can only be used in a server.')],
                 ephemeral: true,
             });
             return;
         }
 
-        const musicClient = client as MusicClient;
         const command = musicClient.commands.get(interaction.commandName);
 
         if (!command) {
@@ -41,7 +49,7 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
             if (now < expirationTime) {
                 const timeLeft = ((expirationTime - now) / 1000).toFixed(1);
                 await interaction.reply({
-                    content: `⏳ Please wait **${timeLeft}s** before using \`/${command.data.name}\` again.`,
+                    embeds: [createErrorEmbed(`Please wait **${timeLeft}s** before using \`/${command.data.name}\` again.`)],
                     ephemeral: true,
                 });
                 return;
@@ -62,12 +70,12 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
                 userId: interaction.user.id,
             });
 
-            const errorMessage = '❌ An unexpected error occurred. Please try again later.';
+            const errorEmbed = createErrorEmbed('An unexpected error occurred. Please try again later.');
 
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ content: errorMessage, ephemeral: true }).catch(() => { });
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true }).catch(() => { });
             } else {
-                await interaction.reply({ content: errorMessage, ephemeral: true }).catch(() => { });
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true }).catch(() => { });
             }
         }
     },

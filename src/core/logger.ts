@@ -15,7 +15,7 @@ export const logger = winston.createLogger({
                 try {
                     metaStr = ` ${JSON.stringify(meta, (key, value) => {
                         if (value instanceof Error) {
-                            const errObj: any = { ...value };
+                            const errObj: Record<string, unknown> = { ...value };
                             return {
                                 name: value.name,
                                 message: value.message,

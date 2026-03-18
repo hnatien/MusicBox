@@ -1,15 +1,17 @@
 import { EmbedBuilder } from 'discord.js';
 import { COLORS, EMOJIS, PROGRESS_BAR_LENGTH, QUEUE_PAGE_SIZE } from './constants.js';
-import { createProgressBar, formatDuration } from './formatDuration.js';
+import { createProgressBar, formatDuration, formatTotalDuration } from './formatDuration.js';
 import type { Song } from '../models/song.js';
 
-export function createNowPlayingEmbed(song: Song, elapsedSeconds: number): EmbedBuilder {
+export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaused = false): EmbedBuilder {
     const progressBar = createProgressBar(elapsedSeconds, song.duration, PROGRESS_BAR_LENGTH);
     const elapsed = formatDuration(elapsedSeconds);
 
+    const title = isPaused ? `${EMOJIS.PAUSE} Paused` : `${EMOJIS.MUSIC} Now Playing`;
+
     return new EmbedBuilder()
         .setColor(COLORS.NOW_PLAYING)
-        .setTitle(`${EMOJIS.MUSIC} Now Playing`)
+        .setTitle(title)
         .setDescription(
             `**[${song.title}](${song.url})**\n` +
             `${song.channelName}\n\n` +
@@ -73,6 +75,7 @@ export function createQueueEmbed(
     page: number,
     totalPages: number,
     totalSongs?: number,
+    totalDuration?: number,
 ): EmbedBuilder {
     const embed = new EmbedBuilder()
         .setColor(COLORS.PRIMARY)
@@ -100,7 +103,11 @@ export function createQueueEmbed(
     embed.setDescription(description);
 
     const songCount = totalSongs ?? songs.length;
-    embed.setFooter({ text: `Page ${page}/${totalPages} · ${songCount} song(s) in queue` });
+    let footerText = `Page ${page}/${totalPages} · ${songCount} song(s) in queue`;
+    if (totalDuration && totalDuration > 0) {
+        footerText += ` · ${formatTotalDuration(totalDuration)}`;
+    }
+    embed.setFooter({ text: footerText });
 
     return embed;
 }

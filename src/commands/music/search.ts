@@ -1,7 +1,6 @@
 import {
     ActionRowBuilder,
     ComponentType,
-    GuildMember,
     SlashCommandBuilder,
     StringSelectMenuBuilder,
     StringSelectMenuOptionBuilder,
@@ -11,7 +10,9 @@ import * as youtubeService from '../../services/youtubeService.js';
 import * as queueManager from '../../services/queueManager.js';
 import * as musicPlayer from '../../services/musicPlayer.js';
 import { createSearchEmbed, createNowPlayingEmbed, createSongAddedEmbed, createErrorEmbed } from '../../utils/embed.js';
+import { createNowPlayingButtons } from '../../utils/components.js';
 import { MAX_QUERY_LENGTH, SELECTION_TIMEOUT_MS } from '../../utils/constants.js';
+import { requireVoiceChannel, requireBotPermissions } from '../../utils/guards.js';
 import { logger } from '../../core/logger.js';
 
 const searchCommand: Command = {
@@ -24,25 +25,10 @@ const searchCommand: Command = {
     cooldown: 5,
 
     execute: async (interaction, client) => {
-        const member = interaction.member as GuildMember;
-        const voiceChannel = member.voice.channel;
+        const voiceChannel = await requireVoiceChannel(interaction);
+        if (!voiceChannel) return;
 
-        if (!voiceChannel) {
-            await interaction.reply({
-                embeds: [createErrorEmbed('You must be in a voice channel to use this command.')],
-                ephemeral: true,
-            });
-            return;
-        }
-
-        const permissions = voiceChannel.permissionsFor(interaction.client.user!);
-        if (!permissions?.has(['Connect', 'Speak'])) {
-            await interaction.reply({
-                embeds: [createErrorEmbed('I need **Connect** and **Speak** permissions in your voice channel.')],
-                ephemeral: true,
-            });
-            return;
-        }
+        if (!(await requireBotPermissions(interaction, voiceChannel))) return;
 
         const query = interaction.options.getString('query', true).slice(0, MAX_QUERY_LENGTH);
 
@@ -58,7 +44,6 @@ const searchCommand: Command = {
                 return;
             }
 
-            // Build select menu
             const selectMenu = new StringSelectMenuBuilder()
                 .setCustomId(`search-select-${interaction.id}`)
                 .setPlaceholder('Choose a song...')
@@ -78,7 +63,6 @@ const searchCommand: Command = {
                 components: [row],
             });
 
-            // Wait for user selection
             try {
                 const selection = await response.awaitMessageComponent({
                     componentType: ComponentType.StringSelect,
@@ -89,7 +73,6 @@ const searchCommand: Command = {
                 const selectedIndex = parseInt(selection.values[0], 10);
                 const song = results[selectedIndex];
 
-                // Get or create queue
                 let queue = queueManager.getQueue(interaction.guildId!);
                 const isNewQueue = !queue;
 
@@ -105,11 +88,12 @@ const searchCommand: Command = {
                 const position = queueManager.addSong(interaction.guildId!, song);
 
                 if (isNewQueue || !queue.isPlaying) {
-                    await musicPlayer.play(interaction.guildId!, client);
+                    const buttons = createNowPlayingButtons(interaction.guildId!, false);
                     await selection.update({
                         embeds: [createNowPlayingEmbed(song, 0)],
-                        components: [],
+                        components: [buttons],
                     });
+                    await musicPlayer.play(interaction.guildId!, client, selection.message);
                 } else {
                     await selection.update({
                         embeds: [createSongAddedEmbed(song, position)],

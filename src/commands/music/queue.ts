@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../models/command.js';
 import * as queueManager from '../../services/queueManager.js';
 import { createQueueEmbed, createErrorEmbed } from '../../utils/embed.js';
+import { createQueueButtons } from '../../utils/components.js';
 import { QUEUE_PAGE_SIZE } from '../../utils/constants.js';
 
 const queueCommand: Command = {
@@ -31,9 +32,17 @@ const queueCommand: Command = {
         const startIndex = (page - 1) * QUEUE_PAGE_SIZE;
         const pageSongs = queue.songs.slice(startIndex, startIndex + QUEUE_PAGE_SIZE);
 
-        const embed = createQueueEmbed(pageSongs, queue.currentSong, page, totalPages, queue.songs.length);
+        const totalDuration =
+            queue.songs.reduce((sum, s) => sum + s.duration, 0) +
+            (queue.currentSong?.duration ?? 0);
 
-        await interaction.reply({ embeds: [embed] });
+        const embed = createQueueEmbed(
+            pageSongs, queue.currentSong, page, totalPages, queue.songs.length, totalDuration,
+        );
+
+        const components = totalPages > 1 ? [createQueueButtons(interaction.guildId!, page, totalPages)] : [];
+
+        await interaction.reply({ embeds: [embed], components });
     },
 };
 

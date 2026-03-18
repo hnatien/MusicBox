@@ -3,12 +3,37 @@ import { PassThrough, type Readable } from 'node:stream';
 import { YouTube } from 'youtube-sr';
 import type { Song } from '../models/song.js';
 import { logger } from '../core/logger.js';
-import { SEARCH_RESULTS_COUNT, STREAM_RETRY_ATTEMPTS } from '../utils/constants.js';
+import { SEARCH_RESULTS_COUNT, STREAM_RETRY_ATTEMPTS, YTDLP_TIMEOUT_MS } from '../utils/constants.js';
 import { formatDuration } from '../utils/formatDuration.js';
 import { isValidYouTubeUrl } from '../utils/validation.js';
 
 export interface AudioStreamResult {
     stream: Readable;
+}
+
+interface YtdlpVideoInfo {
+    title?: string;
+    webpage_url?: string;
+    url?: string;
+    duration?: number;
+    thumbnail?: string;
+    uploader?: string;
+}
+
+interface YtdlpPlaylistInfo {
+    title?: string;
+    entries?: YtdlpPlaylistEntry[];
+}
+
+interface YtdlpPlaylistEntry {
+    title?: string;
+    url?: string;
+    id?: string;
+    duration?: number;
+    thumbnails?: { url: string }[];
+    thumbnail?: string;
+    uploader?: string;
+    channel?: string;
 }
 
 interface CacheEntry {
@@ -33,8 +58,10 @@ try {
 
 let ytdlpBinary = 'yt-dlp';
 try {
-    const ytdl = await import('youtube-dl-exec') as any;
-    const constants = ytdl.constants || ytdl.default?.constants;
+    const ytdl = await import('youtube-dl-exec') as Record<string, unknown>;
+    const constants = (ytdl.constants ?? (ytdl.default as Record<string, unknown>)?.constants) as
+        | { YOUTUBE_DL_PATH?: string }
+        | undefined;
     if (constants?.YOUTUBE_DL_PATH) {
         ytdlpBinary = constants.YOUTUBE_DL_PATH;
     }
@@ -47,6 +74,17 @@ function cleanCache(): void {
         if (entry.expiresAt < now) {
             metadataCache.delete(key);
         }
+    }
+}
+
+function evictIfNeeded(): void {
+    if (metadataCache.size < MAX_CACHE_SIZE) return;
+
+    cleanCache();
+
+    if (metadataCache.size >= MAX_CACHE_SIZE) {
+        const oldestKey = metadataCache.keys().next().value;
+        if (oldestKey) metadataCache.delete(oldestKey);
     }
 }
 
@@ -68,6 +106,45 @@ function getAuthFlags(): string[] {
     }
 
     return flags;
+}
+
+function spawnYtdlp(args: string[]): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const proc = spawn(ytdlpBinary, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+        const stdoutChunks: Buffer[] = [];
+        let stderr = '';
+        let settled = false;
+
+        const timer = setTimeout(() => {
+            if (!settled) {
+                settled = true;
+                proc.kill('SIGKILL');
+                reject(new Error(`yt-dlp timed out after ${YTDLP_TIMEOUT_MS / 1000}s`));
+            }
+        }, YTDLP_TIMEOUT_MS);
+
+        proc.stdout!.on('data', (d: Buffer) => { stdoutChunks.push(d); });
+        proc.stderr!.on('data', (d: Buffer) => { stderr += d.toString(); });
+
+        proc.on('close', (code) => {
+            clearTimeout(timer);
+            if (settled) return;
+            settled = true;
+
+            if (code !== 0) {
+                reject(new Error(`yt-dlp failed (code ${code}): ${stderr}`));
+                return;
+            }
+            resolve(Buffer.concat(stdoutChunks).toString());
+        });
+
+        proc.on('error', (err: Error) => {
+            clearTimeout(timer);
+            if (settled) return;
+            settled = true;
+            reject(new Error(`Failed to spawn yt-dlp (${ytdlpBinary}): ${err.message}. Ensure it is installed: pip install yt-dlp`));
+        });
+    });
 }
 
 export async function searchByQuery(query: string, requestedBy: string): Promise<Song[]> {
@@ -98,57 +175,36 @@ export async function getInfoByUrl(url: string, requestedBy: string): Promise<So
     }
 
     const cookieFlags = getAuthFlags();
+    const stdout = await spawnYtdlp([
+        url,
+        '--dump-single-json',
+        '--no-playlist',
+        '--no-warnings',
+        '--no-check-certificates',
+        '-f', 'ba/ba*',
+        ...cookieFlags,
+    ]);
 
-    const result = await new Promise<Record<string, unknown>>((resolve, reject) => {
-        const args = [
-            url,
-            '--dump-single-json',
-            '--no-playlist',
-            '--no-warnings',
-            '--no-check-certificates',
-            '-f', 'ba/ba*',
-            ...cookieFlags,
-        ];
+    let result: YtdlpVideoInfo;
+    try {
+        result = JSON.parse(stdout);
+    } catch {
+        throw new Error('Failed to parse yt-dlp JSON output');
+    }
 
-        const proc = spawn(ytdlpBinary, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-        const stdoutChunks: Buffer[] = [];
-        let stderr = '';
-
-        proc.stdout!.on('data', (d: Buffer) => { stdoutChunks.push(d); });
-        proc.stderr!.on('data', (d: Buffer) => { stderr += d.toString(); });
-
-        proc.on('close', (code) => {
-            if (code !== 0) {
-                reject(new Error(`yt-dlp metadata failed (code ${code}): ${stderr}`));
-                return;
-            }
-            try {
-                resolve(JSON.parse(Buffer.concat(stdoutChunks).toString()));
-            } catch {
-                reject(new Error('Failed to parse yt-dlp JSON output'));
-            }
-        });
-
-        proc.on('error', (err: Error) => {
-            reject(new Error(`Failed to spawn yt-dlp (${ytdlpBinary}): ${err.message}. Ensure it is installed: pip install yt-dlp`));
-        });
-    });
-
-    const streamUrl = (result.url as string) || undefined;
+    const streamUrl = result.url || undefined;
 
     const song: Song = {
-        title: (result.title as string) ?? 'Unknown Title',
-        url: (result.webpage_url as string) ?? url,
-        duration: (result.duration as number) ?? 0,
-        durationFormatted: formatDuration((result.duration as number) ?? 0),
-        thumbnail: (result.thumbnail as string) ?? '',
-        channelName: (result.uploader as string) ?? 'Unknown Channel',
+        title: result.title ?? 'Unknown Title',
+        url: result.webpage_url ?? url,
+        duration: result.duration ?? 0,
+        durationFormatted: formatDuration(result.duration ?? 0),
+        thumbnail: result.thumbnail ?? '',
+        channelName: result.uploader ?? 'Unknown Channel',
         requestedBy,
     };
 
-    if (metadataCache.size >= MAX_CACHE_SIZE) {
-        cleanCache();
-    }
+    evictIfNeeded();
 
     const cacheEntry: CacheEntry = { song, streamUrl, expiresAt: Date.now() + CACHE_TTL_MS };
     metadataCache.set(url, cacheEntry);
@@ -162,44 +218,25 @@ export async function getInfoByUrl(url: string, requestedBy: string): Promise<So
 
 export async function getPlaylistInfo(url: string, requestedBy: string): Promise<{ title: string; songs: Song[] }> {
     const cookieFlags = getAuthFlags();
+    const stdout = await spawnYtdlp([
+        url,
+        '--dump-single-json',
+        '--flat-playlist',
+        '--no-warnings',
+        '--no-check-certificates',
+        '--playlist-items', '1:100',
+        ...cookieFlags,
+    ]);
 
-    const result = await new Promise<any>((resolve, reject) => {
-        const args = [
-            url,
-            '--dump-single-json',
-            '--flat-playlist',
-            '--no-warnings',
-            '--no-check-certificates',
-            '--playlist-items', '1:100',
-            ...cookieFlags,
-        ];
-
-        const proc = spawn(ytdlpBinary, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-        const stdoutChunks: Buffer[] = [];
-        let stderr = '';
-
-        proc.stdout!.on('data', (d: Buffer) => { stdoutChunks.push(d); });
-        proc.stderr!.on('data', (d: Buffer) => { stderr += d.toString(); });
-
-        proc.on('close', (code) => {
-            if (code !== 0) {
-                reject(new Error(`yt-dlp playlist failed (code ${code}): ${stderr}`));
-                return;
-            }
-            try {
-                resolve(JSON.parse(Buffer.concat(stdoutChunks).toString()));
-            } catch {
-                reject(new Error('Failed to parse yt-dlp playlist JSON output'));
-            }
-        });
-
-        proc.on('error', (err: Error) => {
-            reject(new Error(`Failed to spawn yt-dlp (${ytdlpBinary}): ${err.message}`));
-        });
-    });
+    let result: YtdlpPlaylistInfo;
+    try {
+        result = JSON.parse(stdout);
+    } catch {
+        throw new Error('Failed to parse yt-dlp playlist JSON output');
+    }
 
     const playlistTitle = result.title || 'Unknown Playlist';
-    const entries = (result.entries as any[]) || [];
+    const entries = result.entries || [];
 
     const songs: Song[] = entries
         .filter((entry) => entry.url || entry.id)
@@ -238,40 +275,23 @@ export async function getAudioStream(url: string): Promise<AudioStreamResult> {
     throw new Error(`Failed to get audio stream after ${STREAM_RETRY_ATTEMPTS} attempts: ${lastError}`);
 }
 
-function resolveAudioUrl(url: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const cookieFlags = getAuthFlags();
+async function resolveAudioUrl(url: string): Promise<string> {
+    const cookieFlags = getAuthFlags();
+    const stdout = await spawnYtdlp([
+        url,
+        '-f', 'ba/ba*',
+        '-g',
+        '--no-warnings',
+        '--no-check-certificates',
+        ...cookieFlags,
+    ]);
 
-        const ytdlpArgs = [
-            url,
-            '-f', 'ba/ba*',
-            '-g',
-            '--no-warnings',
-            '--no-check-certificates',
-            ...cookieFlags,
-        ];
+    const trimmed = stdout.trim();
+    if (!trimmed) {
+        throw new Error('yt-dlp returned no URL');
+    }
 
-        const proc = spawn(ytdlpBinary, ytdlpArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
-
-        const stdoutChunks: Buffer[] = [];
-        let stderr = '';
-
-        proc.stdout!.on('data', (d: Buffer) => { stdoutChunks.push(d); });
-        proc.stderr!.on('data', (d: Buffer) => { stderr += d.toString(); });
-
-        proc.on('close', (code) => {
-            const stdout = Buffer.concat(stdoutChunks).toString().trim();
-            if (code !== 0 || !stdout) {
-                reject(new Error(`yt-dlp failed (code ${code}): ${stderr || 'no URL returned'}`));
-                return;
-            }
-            resolve(stdout.split('\n')[0].trim());
-        });
-
-        proc.on('error', (err: Error) => {
-            reject(new Error(`Failed to spawn yt-dlp (${ytdlpBinary}): ${err.message}. Ensure it is installed: pip install yt-dlp`));
-        });
-    });
+    return trimmed.split('\n')[0].trim();
 }
 
 function spawnFfmpegStream(audioUrl: string): Readable {

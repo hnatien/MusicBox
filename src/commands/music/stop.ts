@@ -1,9 +1,9 @@
-import { GuildMember, SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../models/command.js';
 import * as musicPlayer from '../../services/musicPlayer.js';
-import * as queueManager from '../../services/queueManager.js';
-import { createSuccessEmbed, createErrorEmbed } from '../../utils/embed.js';
+import { createSuccessEmbed } from '../../utils/embed.js';
 import { EMOJIS } from '../../utils/constants.js';
+import { requireVoiceChannel, requireQueue } from '../../utils/guards.js';
 
 const stopCommand: Command = {
     data: new SlashCommandBuilder()
@@ -12,25 +12,10 @@ const stopCommand: Command = {
     cooldown: 3,
 
     execute: async (interaction) => {
-        const member = interaction.member as GuildMember;
+        if (!(await requireVoiceChannel(interaction))) return;
 
-        if (!member.voice.channel) {
-            await interaction.reply({
-                embeds: [createErrorEmbed('You must be in a voice channel.')],
-                ephemeral: true,
-            });
-            return;
-        }
-
-        const queue = queueManager.getQueue(interaction.guildId!);
-
-        if (!queue) {
-            await interaction.reply({
-                embeds: [createErrorEmbed('Nothing is playing right now.')],
-                ephemeral: true,
-            });
-            return;
-        }
+        const queue = await requireQueue(interaction);
+        if (!queue) return;
 
         musicPlayer.stop(interaction.guildId!);
 
