@@ -1,11 +1,12 @@
 import { readdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ClientEvents } from 'discord.js';
 import type { MusicClient } from '../core/client.js';
 import { logger } from '../core/logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const runtimeExtension = extname(fileURLToPath(import.meta.url));
 
 interface BotEvent<K extends keyof ClientEvents = keyof ClientEvents> {
     name: K;
@@ -15,7 +16,17 @@ interface BotEvent<K extends keyof ClientEvents = keyof ClientEvents> {
 
 export async function loadEvents(client: MusicClient): Promise<void> {
     const eventFiles = readdirSync(__dirname).filter(
-        (file) => (file.endsWith('.ts') || file.endsWith('.js')) && file !== 'index.ts' && file !== 'index.js',
+        (file) => {
+            if (file === 'index.ts' || file === 'index.js' || file === 'index.d.ts') {
+                return false;
+            }
+
+            if (runtimeExtension === '.ts') {
+                return file.endsWith('.ts') && !file.endsWith('.d.ts');
+            }
+
+            return file.endsWith('.js');
+        },
     );
 
     for (const file of eventFiles) {

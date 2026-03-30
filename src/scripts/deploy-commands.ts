@@ -1,11 +1,12 @@
 import { REST, Routes } from 'discord.js';
 import { readdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from '../config/environment.js';
 import { logger } from '../core/logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const runtimeExtension = extname(fileURLToPath(import.meta.url));
 const commandsDir = join(__dirname, '..', 'commands');
 
 async function deployCommands(): Promise<void> {
@@ -18,7 +19,13 @@ async function deployCommands(): Promise<void> {
     for (const dir of commandDirs) {
         const dirPath = join(commandsDir, dir);
         const commandFiles = readdirSync(dirPath).filter(
-            (file) => file.endsWith('.ts') || file.endsWith('.js'),
+            (file) => {
+                if (runtimeExtension === '.ts') {
+                    return file.endsWith('.ts') && !file.endsWith('.d.ts');
+                }
+
+                return file.endsWith('.js');
+            },
         );
 
         for (const file of commandFiles) {
