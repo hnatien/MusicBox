@@ -1,178 +1,101 @@
-# Music Box
+<p align="center">
+  <h1 align="center">🎵 MusicBox</h1>
+  <p align="center">A self-hosted Discord music bot with YouTube playback, queue management, and playlist support.</p>
+  <p align="center">
+    <img src="https://img.shields.io/badge/discord.js-v14-5865F2?style=flat-square&logo=discord&logoColor=white" alt="discord.js">
+    <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript">
+    <img src="https://img.shields.io/badge/Node.js-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js">
+    <img src="https://img.shields.io/badge/license-ISC-blue?style=flat-square" alt="License">
+  </p>
+</p>
 
-A Discord bot for playing music from YouTube with search, queue management, and playback controls. Built with TypeScript and discord.js v14.
+---
 
 ## Features
 
-- Play audio from YouTube URLs or search queries
-- Search YouTube and select from top results
-- Per-guild queue with add, skip, remove, and pagination
-- Playback controls: pause, resume, stop, volume
-- Now playing display with progress bar
+- Play from YouTube URLs or search queries (single tracks, playlists, Mixes)
+- Interactive search with selectable results
+- Per-guild queue with pagination and volume control
+- Now playing embed with live progress bar
 - Auto-disconnect on inactivity or empty voice channel
 - YouTube cookie support to bypass rate limits
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) >= 20.0.0
-- [FFmpeg](https://ffmpeg.org/) installed and available in PATH
-- A Discord bot token from the [Developer Portal](https://discord.com/developers)
+- Node.js >= 20
+- A Discord bot token — [Developer Portal](https://discord.com/developers/applications)
+- FFmpeg — bundled via `ffmpeg-static`, no manual install needed
 
-## Getting Started
-
-1. Install dependencies:
+## Quick Start
 
 ```bash
+# 1. Install dependencies
 npm install
-```
 
-2. Create your environment file:
-
-```bash
+# 2. Configure environment
 cp .env.example .env
-```
+# Edit .env — set DISCORD_TOKEN and CLIENT_ID at minimum
 
-3. Configure required variables in `.env`:
-
-```
-DISCORD_TOKEN=your_bot_token
-CLIENT_ID=your_client_id
-```
-
-4. Register slash commands:
-
-```bash
+# 3. Register slash commands
 npm run deploy-commands
-```
 
-5. Start the bot:
-
-```bash
+# 4. Start
 npm run dev
 ```
 
-## Docker Deployment
-
-This repository includes a production-ready `Dockerfile` with required system dependencies (`python3` and `ffmpeg`) for `yt-dlp` playback.
-
-1. Build image:
-
-```bash
-docker build -t music-box:latest .
-```
-
-2. Run container:
-
-```bash
- docker run --rm --name music-box --env-file .env music-box:latest
-```
-
-3. For Railway:
-
-- If Railway is using this `Dockerfile`, leave `Pre-deploy Command` empty
-- If Railway is using this `Dockerfile`, leave `Custom Start Command` empty
-- The image already handles build and startup via `RUN npm run build` and `CMD ["node", "dist/index.js"]`
-- Enable teardown to avoid overlapping bot instances during rollout
-
 ## Configuration
 
-All configuration is managed through environment variables. See `.env.example` for the full list.
-
 | Variable | Required | Default | Description |
-| --- | --- | --- | --- |
-| `DISCORD_TOKEN` | Yes | -- | Bot token from Discord Developer Portal |
-| `CLIENT_ID` | Yes | -- | Application client ID |
-| `DEV_GUILD_ID` | No | -- | Guild ID for faster command registration during development |
-| `LOG_LEVEL` | No | `info` | Logging level: `debug`, `info`, `warn`, `error` |
-| `DEFAULT_VOLUME` | No | `50` | Default playback volume (1-100) |
-| `MAX_QUEUE_SIZE` | No | `100` | Maximum number of songs per guild queue |
-| `INACTIVITY_TIMEOUT` | No | `300` | Seconds of inactivity before auto-disconnect |
-| `YOUTUBE_COOKIE` | No | -- | Manual cookie string fallback for YouTube |
+|---|:---:|:---:|---|
+| `DISCORD_TOKEN` | ✅ | — | Bot token from Discord Developer Portal |
+| `CLIENT_ID` | ✅ | — | Application client ID |
+| `DEV_GUILD_ID` | — | — | Guild ID for instant command updates during development |
+| `LOG_LEVEL` | — | `info` | `debug` · `info` · `warn` · `error` |
+| `DEFAULT_VOLUME` | — | `50` | Initial playback volume (1–100) |
+| `MAX_QUEUE_SIZE` | — | `100` | Max songs per guild queue |
+| `INACTIVITY_TIMEOUT` | — | `300` | Seconds of inactivity before auto-disconnect |
+| `YOUTUBE_COOKIE` | — | — | Cookie string to bypass YouTube rate limits |
 
 ## Commands
 
 | Command | Description |
-| --- | --- |
-| `/play <query>` | Play a song by URL or search term |
-| `/search <query>` | Search YouTube and pick from results |
-| `/skip` | Skip the current song |
-| `/stop` | Stop playback and clear the queue |
-| `/pause` | Pause the current song |
-| `/resume` | Resume playback |
+|---|---|
+| `/play <query>` | Play by URL or search term — supports playlists and YouTube Mixes |
+| `/search <query>` | Search YouTube and pick from top 5 results |
+| `/nowplaying` | Show current track with progress bar |
+| `/queue [page]` | View the song queue (10 per page) |
+| `/skip` | Skip the current track |
+| `/pause` / `/resume` | Pause or resume playback |
 | `/volume <1-100>` | Set playback volume |
-| `/queue [page]` | View the song queue |
-| `/nowplaying` | Show the currently playing song |
+| `/stop` | Stop playback and clear the queue |
 | `/ping` | Show bot latency |
 | `/help` | List all available commands |
 
 ## Scripts
 
-| Script | Description |
-| --- | --- |
-| `npm run dev` | Start in development mode with hot reload |
+| Command | Description |
+|---|---|
+| `npm run dev` | Start with hot reload (development) |
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm start` | Run the compiled production build |
 | `npm run deploy-commands` | Register slash commands with Discord |
-| `npm run lint` | Lint and auto-fix source files |
+| `npm run lint` | ESLint with auto-fix |
 | `npm run format` | Format source files with Prettier |
 
-## Tech Stack
+## Docker
 
-- **TypeScript** -- Language
-- **discord.js v14** -- Discord API client
-- **@discordjs/voice** -- Voice connections and audio playback
-- **youtube-dl-exec** -- YouTube audio extraction
-- **youtube-sr** -- YouTube search
-- **Winston** -- Structured logging
-- **FFmpeg** -- Audio processing
-- **opusscript** -- Opus encoding for Discord voice
+```bash
+# Build
+docker build -t musicbox:latest .
 
-## Project Structure
-
+# Run
+docker run --rm --env-file .env musicbox:latest
 ```
-src/
-├── index.ts                   # Entry point
-├── config/
-│   └── environment.ts         # Environment variable validation
-├── core/
-│   ├── client.ts              # Extended Discord client
-│   └── logger.ts              # Winston logger setup
-├── commands/
-│   ├── index.ts               # Command loader and registry
-│   ├── music/
-│   │   ├── play.ts            # Play by URL or search term
-│   │   ├── search.ts          # Interactive YouTube search
-│   │   ├── skip.ts            # Skip current track
-│   │   ├── stop.ts            # Stop and clear queue
-│   │   ├── pause.ts           # Pause playback
-│   │   ├── resume.ts          # Resume playback
-│   │   ├── volume.ts          # Volume control
-│   │   ├── queue.ts           # View queue with pagination
-│   │   └── nowplaying.ts      # Current track info
-│   └── utility/
-│       ├── ping.ts            # Latency check
-│       └── help.ts            # Command listing
-├── events/
-│   ├── index.ts               # Event loader
-│   ├── ready.ts               # Bot ready handler
-│   ├── interactionCreate.ts   # Command interaction router
-│   └── voiceStateUpdate.ts    # Voice channel state tracking
-├── services/
-│   ├── musicPlayer.ts         # Audio stream and playback logic
-│   ├── queueManager.ts        # Per-guild queue state management
-│   └── youtubeService.ts      # YouTube search and stream extraction
-├── models/
-│   ├── command.ts             # Command interface
-│   ├── song.ts                # Song data model
-│   └── guildQueue.ts          # Guild queue data model
-├── types/                     # Shared type definitions
-└── utils/
-    ├── constants.ts           # Application constants
-    ├── embed.ts               # Discord embed builders
-    ├── formatDuration.ts      # Duration formatting helpers
-    └── validation.ts          # Input validation utilities
-```
+
+The image bundles `python3` and `ffmpeg` — no host dependencies needed.
+
+**Railway:** Leave _Pre-deploy Command_ and _Custom Start Command_ empty. Enable teardown to prevent overlapping instances during deploys.
 
 ## License
 
-ISC
+[ISC](LICENSE)
