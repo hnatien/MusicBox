@@ -55,12 +55,6 @@ function getAuthFlags(): string[] {
 
     flags.push('--js-runtimes', 'node');
 
-    const browser = process.env.YOUTUBE_BROWSER;
-    if (browser) {
-        flags.push('--cookies-from-browser', browser);
-        return flags;
-    }
-
     const rawCookie = process.env.YOUTUBE_COOKIE;
     const cookie = rawCookie?.replace(/^["']|["']$/g, '').trim();
     if (cookie) {

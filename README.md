@@ -64,7 +64,6 @@ All configuration is managed through environment variables. See `.env.example` f
 | `DEFAULT_VOLUME` | No | `50` | Default playback volume (1-100) |
 | `MAX_QUEUE_SIZE` | No | `100` | Maximum number of songs per guild queue |
 | `INACTIVITY_TIMEOUT` | No | `300` | Seconds of inactivity before auto-disconnect |
-| `YOUTUBE_BROWSER` | No | -- | Browser to extract cookies from (`chrome`, `edge`, `brave`, `firefox`) |
 | `YOUTUBE_COOKIE` | No | -- | Manual cookie string fallback for YouTube |
 
 ## Commands
