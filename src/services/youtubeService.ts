@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { PassThrough, type Readable } from 'node:stream';
 import { YouTube } from 'youtube-sr';
 import type { Song } from '../models/song.js';
@@ -54,6 +55,16 @@ function getAuthFlags(): string[] {
     const flags: string[] = [];
 
     flags.push('--js-runtimes', 'node');
+
+    const cookieFile = process.env.YOUTUBE_COOKIE_FILE?.trim();
+    if (cookieFile) {
+        if (existsSync(cookieFile)) {
+            flags.push('--cookies', cookieFile);
+            return flags;
+        }
+
+        logger.warn(`YOUTUBE_COOKIE_FILE is set but file does not exist: ${cookieFile}`);
+    }
 
     const browser = process.env.YOUTUBE_BROWSER;
     if (browser) {

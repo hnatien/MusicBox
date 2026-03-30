@@ -19,6 +19,10 @@ RUN npm run build
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends python3 \
+	&& rm -rf /var/lib/apt/lists/*
+
 ENV NODE_ENV=production
 ENV YOUTUBE_DL_SKIP_PYTHON_CHECK=1
 

@@ -9,4 +9,7 @@ services:
       - .env
     environment:
       NODE_ENV: production
+      YOUTUBE_COOKIE_FILE: ${YOUTUBE_COOKIE_FILE:-/run/secrets/youtube-cookies.txt}
+    volumes:
+      - ./secrets:/run/secrets:ro
     restart: unless-stopped

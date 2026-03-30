@@ -64,8 +64,14 @@ All configuration is managed through environment variables. See `.env.example` f
 | `DEFAULT_VOLUME` | No | `50` | Default playback volume (1-100) |
 | `MAX_QUEUE_SIZE` | No | `100` | Maximum number of songs per guild queue |
 | `INACTIVITY_TIMEOUT` | No | `300` | Seconds of inactivity before auto-disconnect |
+| `YOUTUBE_COOKIE_FILE` | No | -- | Path to Netscape cookie file (recommended for production/Docker) |
 | `YOUTUBE_BROWSER` | No | -- | Browser to extract cookies from (`chrome`, `edge`, `brave`, `firefox`) |
 | `YOUTUBE_COOKIE` | No | -- | Manual cookie string fallback for YouTube |
+
+Cookie priority order used by the bot:
+1. `YOUTUBE_COOKIE_FILE`
+2. `YOUTUBE_BROWSER`
+3. `YOUTUBE_COOKIE`
 
 ## Commands
 
@@ -113,6 +119,43 @@ docker compose -f docker-compose.prod.yml logs -f
 ```bash
 docker compose -f docker-compose.prod.yml down
 ```
+
+### Cookie Best Practice (Auto Refresh)
+
+For Docker/production, prefer a cookie file instead of `YOUTUBE_BROWSER`.
+
+1. Export `youtube.com` cookies to Netscape format on host machine.
+2. Store as a file, for example `./secrets/youtube-cookies.txt`.
+3. Mount that file into container and set `YOUTUBE_COOKIE_FILE` to mounted path.
+4. Refresh the file periodically (for example every 6-24h) with a host-side script/task.
+
+Why: browser profiles are usually unavailable inside container, so `--cookies-from-browser brave` often fails with missing cookie database.
+
+### Auto Refresh on Windows
+
+1. Leave this in `.env`:
+
+```env
+YOUTUBE_COOKIE_FILE=/run/secrets/youtube-cookies.txt
+YOUTUBE_BROWSER=
+```
+
+2. Refresh cookie file from host browser profile:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\refresh-youtube-cookies.ps1 -Browser brave
+```
+
+3. Schedule the refresh (example every 12h):
+
+```powershell
+schtasks /Create /SC HOURLY /MO 12 /TN "MusicBox Refresh YouTube Cookies" /TR "powershell -ExecutionPolicy Bypass -File D:\Projects\MusicBox\scripts\refresh-youtube-cookies.ps1 -Browser brave" /F
+```
+
+Notes:
+- You still need to sign in YouTube on that browser profile.
+- Cookie refresh runs on host machine, not inside container.
+- Bot reads cookie file on each stream request, so container restart is not required after refresh.
 
 ## Tech Stack
 
