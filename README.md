@@ -51,6 +51,31 @@ npm run deploy-commands
 npm run dev
 ```
 
+## Docker Deployment
+
+This repository includes a production-ready `Dockerfile` with required system dependencies (`python3` and `ffmpeg`) for `yt-dlp` playback.
+
+1. Build image:
+
+```bash
+docker build -t music-box:latest .
+```
+
+2. Run container:
+
+```bash
+docker run --rm \
+    --name music-box \
+    --env-file .env \
+    music-box:latest
+```
+
+3. For Railway:
+
+- Keep `Pre-deploy Command`: `npm run build`
+- Keep `Custom Start Command`: `npm start`
+- Enable teardown to avoid overlapping bot instances during rollout
+
 ## Configuration
 
 All configuration is managed through environment variables. See `.env.example` for the full list.
