@@ -15,7 +15,7 @@ export async function loadCommands(client: MusicClient): Promise<void> {
     for (const dir of commandDirs) {
         const dirPath = join(__dirname, dir);
         const commandFiles = readdirSync(dirPath).filter(
-            (file) => file.endsWith('.ts') || file.endsWith('.js'),
+            (file) => file.endsWith('.js') || (file.endsWith('.ts') && !file.endsWith('.d.ts')),
         );
 
         for (const file of commandFiles) {

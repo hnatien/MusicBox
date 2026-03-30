@@ -15,7 +15,7 @@ interface BotEvent<K extends keyof ClientEvents = keyof ClientEvents> {
 
 export async function loadEvents(client: MusicClient): Promise<void> {
     const eventFiles = readdirSync(__dirname).filter(
-        (file) => (file.endsWith('.ts') || file.endsWith('.js')) && file !== 'index.ts' && file !== 'index.js',
+        (file) => (file.endsWith('.js') || (file.endsWith('.ts') && !file.endsWith('.d.ts'))) && file !== 'index.ts' && file !== 'index.js',
     );
 
     for (const file of eventFiles) {
