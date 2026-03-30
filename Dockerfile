@@ -1,34 +1,35 @@
-FROM node:22-bookworm-slim AS build
-
+FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+ENV YOUTUBE_DL_SKIP_PYTHON_CHECK=1
 
-COPY package.json package-lock.json ./
+COPY package*.json ./
 RUN npm ci
 
+FROM node:22-bookworm-slim AS builder
+WORKDIR /app
+
+COPY package*.json ./
+COPY --from=deps /app/node_modules ./node_modules
 COPY tsconfig.json ./
 COPY src ./src
 
 RUN npm run build
-RUN npm prune --omit=dev
 
-FROM node:22-bookworm-slim AS runtime
-
-ENV NODE_ENV=production
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends yt-dlp ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
-COPY --from=build /app/package.json /app/package-lock.json ./
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends python3 ffmpeg \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& python3 -m pip install --no-cache-dir yt-dlp
 
-USER node
+ENV NODE_ENV=production
+ENV YOUTUBE_DL_SKIP_PYTHON_CHECK=1
+
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+COPY --from=builder /app/dist ./dist
 
 CMD ["node", "dist/index.js"]
