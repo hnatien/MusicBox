@@ -25,7 +25,15 @@ const playCommand: Command = {
 
         if (!(await requireBotPermissions(interaction, voiceChannel))) return;
 
-        const query = interaction.options.getString('query', true).slice(0, MAX_QUERY_LENGTH);
+        const rawQuery = interaction.options.getString('query', true).slice(0, MAX_QUERY_LENGTH);
+
+        // If URL contains both a specific video ID and a mix list (e.g. v=X&list=RD...),
+        // strip the list parameter so the user's chosen video is played, not a random mix entry.
+        const videoIdMatch = rawQuery.match(/[?&]v=([a-zA-Z0-9_-]+)/);
+        const query =
+            isValidYouTubeUrl(rawQuery) && isMixUrl(rawQuery) && videoIdMatch
+                ? `https://www.youtube.com/watch?v=${videoIdMatch[1]}`
+                : rawQuery;
 
         await interaction.deferReply();
 

@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, type Readable } from 'node:stream';
@@ -46,8 +46,10 @@ interface CacheEntry {
 }
 
 const CACHE_TTL_MS = 60 * 60 * 1000;
+const STREAM_URL_TTL_MS = 5 * 60 * 1000; // YouTube direct URLs expire; keep short
 const MAX_CACHE_SIZE = 500;
 const metadataCache = new Map<string, CacheEntry>();
+const streamUrlCache = new Map<string, { url: string; expiresAt: number }>();
 const COOKIE_FILE_PATH = join(tmpdir(), 'musicbox-youtube.cookies.txt');
 
 let lastCookieRaw = '';
@@ -121,21 +123,29 @@ function getAuthFlags(): string[] {
 }
 
 function ensureCookieFile(cookieString: string): void {
-    if (!cookieString || cookieString === lastCookieRaw) {
+    if (!cookieString) return;
+    if (cookieString === lastCookieRaw && existsSync(COOKIE_FILE_PATH)) {
         return;
     }
 
     const cookies = cookieString
-        .split(';')
+        .replace(/\r/g, '')
+        .split(/[;\n]+/)
         .map((part) => part.trim())
         .filter(Boolean)
         .map((pair) => {
-            const separatorIndex = pair.indexOf('=');
+            const separatorMatch = pair.includes('=') ? '=' : (pair.includes(':') ? ':' : '');
+            if (!separatorMatch) return null;
+            const separatorIndex = pair.indexOf(separatorMatch);
             if (separatorIndex <= 0) return null;
             const name = pair.slice(0, separatorIndex).trim();
             const value = pair.slice(separatorIndex + 1).trim();
             if (!name || !value) return null;
-            return { name, value };
+
+            // Accept some common shorthand names users copy from browser tools.
+            const normalizedName = name.toLowerCase() === 'secure' ? '__Secure-1PSID' : name;
+
+            return { name: normalizedName, value };
         })
         .filter((item): item is { name: string; value: string } => item !== null);
 
@@ -385,12 +395,17 @@ function spawnFfmpegStream(audioUrl: string): Readable {
 }
 
 async function createYtdlpStream(url: string): Promise<Readable> {
-    const cached = metadataCache.get(url);
-    if (cached?.streamUrl && cached.expiresAt > Date.now()) {
+    const now = Date.now();
+    const cached = streamUrlCache.get(url);
+    if (cached && cached.expiresAt > now) {
         logger.debug(`Stream URL cache hit for: ${url}`);
-        return spawnFfmpegStream(cached.streamUrl);
+        return spawnFfmpegStream(cached.url);
     }
 
+    // Resolve a fresh playable direct URL via yt-dlp (-g). The metadata "url"
+    // from --dump-single-json can be a DASH manifest or otherwise non-playable
+    // by ffmpeg directly, so we always use -g here.
     const audioUrl = await resolveAudioUrl(url);
+    streamUrlCache.set(url, { url: audioUrl, expiresAt: now + STREAM_URL_TTL_MS });
     return spawnFfmpegStream(audioUrl);
 }

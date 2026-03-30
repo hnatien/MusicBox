@@ -13,7 +13,7 @@ const voiceStateUpdateEvent: BotEvent<'voiceStateUpdate'> = {
         const queue = queueManager.getQueue(guildId);
         if (!queue) return;
 
-        const botVoiceChannel = oldState.guild.members.cache.get(botId)?.voice.channel;
+        const botVoiceChannel = oldState.guild.members.me?.voice.channel;
         if (!botVoiceChannel) return;
 
         const nonBotMembers = botVoiceChannel.members.filter((member) => !member.user.bot);
