@@ -8,6 +8,8 @@ interface EnvironmentConfig {
     DEFAULT_VOLUME: number;
     MAX_QUEUE_SIZE: number;
     INACTIVITY_TIMEOUT: number;
+    YOUTUBE_BROWSER?: string;
+    YOUTUBE_COOKIE?: string;
 }
 
 function validateEnv(): EnvironmentConfig {
@@ -19,6 +21,13 @@ function validateEnv(): EnvironmentConfig {
         }
     }
 
+    const youtubeAuth = process.env.YOUTUBE_BROWSER || process.env.YOUTUBE_COOKIE;
+    if (!youtubeAuth) {
+        console.warn(
+            'WARNING: YouTube authentication not configured. Set YOUTUBE_BROWSER or YOUTUBE_COOKIE in .env to avoid "Sign in to confirm you\'re not a bot" errors.'
+        );
+    }
+
     return {
         DISCORD_TOKEN: process.env.DISCORD_TOKEN!,
         CLIENT_ID: process.env.CLIENT_ID!,
@@ -27,6 +36,8 @@ function validateEnv(): EnvironmentConfig {
         DEFAULT_VOLUME: parseInt(process.env.DEFAULT_VOLUME || '50', 10),
         MAX_QUEUE_SIZE: parseInt(process.env.MAX_QUEUE_SIZE || '100', 10),
         INACTIVITY_TIMEOUT: parseInt(process.env.INACTIVITY_TIMEOUT || '300', 10),
+        YOUTUBE_BROWSER: process.env.YOUTUBE_BROWSER || undefined,
+        YOUTUBE_COOKIE: process.env.YOUTUBE_COOKIE || undefined,
     };
 }
 
