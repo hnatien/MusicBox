@@ -1,335 +1,248 @@
-<div align="center">
+﻿# Music Box
 
-# 🎵 Music Box
+Discord music bot built with TypeScript and discord.js v14.
 
-**A feature-rich Discord music bot for playing YouTube audio with search, queue management, and interactive playback controls.**
+Music Box supports YouTube playback, search, queue management, and interactive now-playing controls.
 
-Built with TypeScript · discord.js v14 · Slash Commands
+## Features
 
-[![Node.js](https://img.shields.io/badge/Node.js-≥20.0.0-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.js.org/)
-[![License](https://img.shields.io/badge/License-ISC-blue?style=flat-square)](LICENSE)
+- Play from YouTube URLs, search queries, playlists, and mixes
+- Interactive `/search` command with result selection
+- Per-guild queue with pagination
+- Playback controls: pause, resume, skip, stop, volume
+- Now-playing message with live progress updates
+- Auto-disconnect when voice channel is empty or idle
+- Cookie-based YouTube access fallback
 
-</div>
+## Tech Stack
 
----
+- Node.js 22
+- TypeScript 5
+- discord.js v14
+- @discordjs/voice
+- youtube-sr
+- yt-dlp
+- FFmpeg
+- Winston
 
-## 📖 Table of Contents
+## Requirements
 
-- [Features](#-features)
-- [Demo](#-demo)
-- [Prerequisites](#-prerequisites)
-- [Getting Started](#-getting-started)
-- [Docker Deployment (Production)](#-docker-deployment-production)
-- [Configuration](#%EF%B8%8F-configuration)
-- [Commands](#-commands)
-- [Architecture](#-architecture)
-- [Scripts](#-scripts)
-- [Tech Stack](#-tech-stack)
-- [Contributing](#-contributing)
-- [License](#-license)
+- Docker and Docker Compose plugin
+- Discord bot token and client ID
 
-## ✨ Features
+No local FFmpeg or yt-dlp installation is required when running with Docker.
 
-| Feature | Description |
-| --- | --- |
-| 🎶 **YouTube Playback** | Play audio from URLs, search queries, playlists, and Mixes |
-| 🔎 **Interactive Search** | Search YouTube and select from top results via dropdown menu |
-| 📜 **Queue Management** | Per-guild queue with pagination and total duration display |
-| 🎛️ **Now Playing Controls** | Interactive buttons — Pause/Resume, Skip, Stop |
-| 📊 **Live Progress Bar** | Real-time progress bar updates every 15 seconds |
-| 🔊 **Volume Control** | Adjustable playback volume (1–100) |
-| ⏱️ **Auto-Disconnect** | Automatic disconnect on inactivity or empty voice channel |
-| 🍪 **YouTube Cookie Support** | Bypass rate limits with browser cookie extraction |
-| ⚡ **Metadata Cache** | In-memory LRU cache (500 entries, 1h TTL) for faster playback |
-| 🔄 **Smart Retry** | Automatic stream retry with exponential backoff (up to 3 attempts) |
+## Quick Start (Docker Only)
 
-## 🎬 Demo
-
-```
-/play never gonna give you up
-```
-
-> 🎵 **Now Playing**
-> **[Never Gonna Give You Up](https://youtube.com/watch?v=dQw4w9WgXcQ)**
-> Rick Astley
->
-> ▬▬▬▬🔘▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-> `1:12 / 3:33`
->
-> Requested by @you
-
-*Interactive buttons: ⏸️ Pause · ⏭️ Skip · ⏹️ Stop*
-
-## 📋 Prerequisites
-
-Before you begin, ensure you have the following installed:
-
-- **[Node.js](https://nodejs.org/)** ≥ 20.0.0
-- **[FFmpeg](https://ffmpeg.org/)** — installed and available in PATH
-- **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** — installed and available in PATH (`pip install yt-dlp`)
-- **Discord Bot Token** — from the [Developer Portal](https://discord.com/developers)
-
-## 🚀 Getting Started
-
-### 1. Clone & Install
+1. Clone and enter the repository.
 
 ```bash
 git clone https://github.com/your-username/MusicBox.git
 cd MusicBox
-npm install
 ```
 
-### 2. Configure Environment
+2. Create environment file.
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` and fill in your credentials:
+3. Set required variables in `.env`.
 
 ```env
-DISCORD_TOKEN=your_bot_token_here
-CLIENT_ID=your_application_client_id
+DISCORD_TOKEN=your_bot_token
+CLIENT_ID=your_client_id
 ```
 
-### 3. Register Slash Commands
-
-```bash
-npm run deploy-commands
-```
-
-> **Tip:** Set `DEV_GUILD_ID` in `.env` for instant command registration during development. Without it, global deployment can take up to 1 hour to propagate.
-
-### 4. Start the Bot
-
-```bash
-# Development (hot reload)
-npm run dev
-
-# Production
-npm run build
-npm start
-```
-
-## 🐳 Docker Deployment (Production)
-
-This project includes a production-ready Docker setup with:
-
-- Multi-stage build (small runtime image)
-- `NODE_ENV=production`
-- Non-root runtime user
-- `yt-dlp` preinstalled in container
-- `restart: unless-stopped` via Compose
-
-### 1. Prepare Environment
-
-```bash
-cp .env.example .env
-```
-
-Update `.env` with your real values (`DISCORD_TOKEN`, `CLIENT_ID`, etc.).
-
-### 2. Build and Run with Compose
+4. Build and start container.
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-### 3. Check Logs
+5. Check logs.
 
 ```bash
 docker compose -f docker-compose.prod.yml logs -f
 ```
 
-### 4. Stop
-
-```bash
-docker compose -f docker-compose.prod.yml down
-```
-
-### Optional: Register Slash Commands in Container
-
-Run once when needed (after changing command definitions):
+6. Register slash commands (run once after first deploy, or when commands change).
 
 ```bash
 docker compose -f docker-compose.prod.yml run --rm musicbox npm run deploy-commands
 ```
 
-## ⚙️ Configuration
+7. Stop service.
 
-All configuration is managed through environment variables. See [`.env.example`](.env.example) for the full template.
+```bash
+docker compose -f docker-compose.prod.yml down
+```
+
+## Environment Variables
+
+All configuration is managed through environment variables.
 
 | Variable | Required | Default | Description |
-| --- | :---: | :---: | --- |
-| `DISCORD_TOKEN` | ✅ | — | Bot token from Discord Developer Portal |
-| `CLIENT_ID` | ✅ | — | Application client ID |
-| `DEV_GUILD_ID` | — | — | Guild ID for faster command registration in dev |
-| `LOG_LEVEL` | — | `info` | Logging level: `debug` · `info` · `warn` · `error` |
-| `DEFAULT_VOLUME` | — | `50` | Default playback volume (1–100) |
-| `MAX_QUEUE_SIZE` | — | `100` | Maximum songs per guild queue |
-| `INACTIVITY_TIMEOUT` | — | `300` | Seconds of inactivity before auto-disconnect |
-| `YOUTUBE_BROWSER` | — | — | Browser to extract cookies from: `chrome` · `edge` · `brave` · `firefox` |
-| `YOUTUBE_COOKIE` | — | — | Manual cookie string fallback (not needed if `YOUTUBE_BROWSER` is set) |
+| --- | --- | --- | --- |
+| `DISCORD_TOKEN` | Yes | - | Discord bot token |
+| `CLIENT_ID` | Yes | - | Discord application client ID |
+| `DEV_GUILD_ID` | No | - | Faster guild-scoped command registration for development |
+| `LOG_LEVEL` | No | `info` | `debug`, `info`, `warn`, `error` |
+| `DEFAULT_VOLUME` | No | `50` | Default volume (1-100) |
+| `MAX_QUEUE_SIZE` | No | `100` | Max songs in queue per guild |
+| `INACTIVITY_TIMEOUT` | No | `300` | Seconds before auto-disconnect |
+| `YOUTUBE_COOKIE_FILE` | No | - | Path to Netscape cookie file |
+| `YOUTUBE_BROWSER` | No | - | Browser cookie extraction (`chrome`, `edge`, `brave`, `firefox`) |
+| `YOUTUBE_COOKIE` | No | - | Manual cookie header fallback |
 
-## 🎮 Commands
+Cookie resolution priority in code:
+
+1. `YOUTUBE_COOKIE_FILE`
+2. `YOUTUBE_BROWSER`
+3. `YOUTUBE_COOKIE`
+
+## Cookie Setup for Docker
+
+Recommended in containers: use `YOUTUBE_COOKIE` or mount a cookie file.
+
+### Option A: Use `YOUTUBE_COOKIE` string (simple)
+
+Set this directly in `.env`:
+
+```env
+YOUTUBE_COOKIE=APISID=...; SID=...; ...
+```
+
+### Option B: Use `YOUTUBE_COOKIE_FILE` (Netscape format)
+
+1. Save cookie file on host, for example: `./secrets/youtube-cookies.txt`
+2. Add this to `.env`:
+
+```env
+YOUTUBE_COOKIE_FILE=/run/secrets/youtube-cookies.txt
+```
+
+3. Mount into container by editing `docker-compose.prod.yml`:
+
+```yaml
+services:
+  musicbox:
+    volumes:
+      - ./secrets:/run/secrets:ro
+```
+
+## Commands
 
 ### Music
 
-| Command | Description | Cooldown |
-| --- | --- | :---: |
-| `/play <query>` | Play a song by YouTube URL, playlist, mix, or search term | 3s |
-| `/search <query>` | Search YouTube and pick from results via dropdown | 5s |
-| `/skip` | Skip the current song | 2s |
-| `/stop` | Stop playback, clear queue, and disconnect | 3s |
-| `/pause` | Pause the current song | 2s |
-| `/resume` | Resume playback | 2s |
-| `/volume [level]` | Set or view playback volume (1–100) | 2s |
-| `/queue [page]` | View the song queue with pagination | 3s |
-| `/nowplaying` | Show the currently playing song with progress | 3s |
+- `/play <query>`: play song by URL or search term
+- `/search <query>`: search and choose result
+- `/skip`: skip current song
+- `/stop`: stop playback and clear queue
+- `/pause`: pause playback
+- `/resume`: resume playback
+- `/volume [level]`: set or show volume
+- `/queue [page]`: show queue
+- `/nowplaying`: show current track and progress
 
 ### Utility
 
-| Command | Description | Cooldown |
-| --- | --- | :---: |
-| `/ping` | Show bot and API latency | 5s |
-| `/help` | List all available commands by category | 5s |
-| `/update` | View the latest bot changelog | 10s |
+- `/help`: list commands
+- `/ping`: latency check
+- `/update`: changelog/update info
 
-## 🏗️ Architecture
+## Project Structure
 
-```
+```text
 src/
-├── index.ts                  # Entry point — init, login, graceful shutdown
-├── config/
-│   └── environment.ts        # Env var validation and typed config
-├── core/
-│   ├── client.ts             # Extended Discord.js Client with command registry
-│   └── logger.ts             # Winston structured logging
-├── commands/
-│   ├── index.ts              # Dynamic command loader (scans subdirectories)
-│   ├── music/                # play, search, skip, stop, pause, resume, volume, queue, nowplaying
-│   └── utility/              # ping, help, update
-├── events/
-│   ├── index.ts              # Dynamic event loader
-│   ├── interactionCreate.ts  # Routes slash commands + button interactions
-│   ├── handleButtons.ts      # Now Playing & Queue button handlers
-│   ├── voiceStateUpdate.ts   # Auto-disconnect on empty channel
-│   ├── ready.ts              # Bot ready event
-│   ├── guildCreate.ts        # Joined guild tracking
-│   └── guildDelete.ts        # Left guild tracking
-├── services/
-│   ├── musicPlayer.ts        # Voice connections, audio playback, progress bar
-│   ├── queueManager.ts       # Per-guild FIFO queue (Map<guildId, GuildQueue>)
-│   └── youtubeService.ts     # YouTube search, metadata, audio streaming
-├── models/
-│   ├── command.ts            # Command interface
-│   ├── guildQueue.ts         # GuildQueue data model
-│   └── song.ts               # Song data model
-├── utils/
-│   ├── guards.ts             # Reusable validation (voice channel, permissions, queue)
-│   ├── components.ts         # Discord button builders
-│   ├── embed.ts              # All embed constructors
-│   ├── constants.ts          # Colors, emojis, limits
-│   ├── formatDuration.ts     # Duration formatting and progress bar
-│   └── validation.ts         # YouTube URL validation
-├── types/
-│   └── index.ts              # Discord.js Client type augmentation
-└── scripts/
-    └── deploy-commands.ts    # Slash command registration script
+  index.ts
+  config/
+    environment.ts
+  core/
+    client.ts
+    logger.ts
+  commands/
+    index.ts
+    music/
+    utility/
+  events/
+    index.ts
+    interactionCreate.ts
+    handleButtons.ts
+    ready.ts
+    voiceStateUpdate.ts
+    guildCreate.ts
+    guildDelete.ts
+  services/
+    musicPlayer.ts
+    queueManager.ts
+    youtubeService.ts
+  models/
+    command.ts
+    guildQueue.ts
+    song.ts
+  utils/
+    components.ts
+    constants.ts
+    embed.ts
+    formatDuration.ts
+    guards.ts
+    validation.ts
+  types/
+    index.ts
+  scripts/
+    deploy-commands.ts
 ```
 
-### Play Flow
+## Development Commands
 
-```
-/play → requireVoiceChannel() → requireBotPermissions()
-  → queueManager (create/get queue)
-  → youtubeService (resolve metadata)
-  → queueManager.addSong()
-  → musicPlayer.play()
-  → yt-dlp (resolve audio URL)
-  → FFmpeg (transcode to s16le, 48kHz, 2ch)
-  → createAudioResource()
-  → player.play()
-  → On idle → auto-play next song
-```
-
-### Button Interaction Flow
-
-```
-User clicks button → interactionCreate routes to handleButtons
-  → Parse customId (prefix:action:guildId[:extra])
-  → Now Playing: pause/resume/skip/stop
-  → Queue: page navigation
-  → Update message embed + buttons
+```bash
+npm run dev            # hot reload
+npm run build          # compile TypeScript
+npm start              # run dist build
+npm run deploy-commands
+npm test
+npm run test:watch
+npm run test:coverage
+npm run lint
+npm run format
 ```
 
-## 📜 Scripts
+## Troubleshooting
 
-| Script | Description |
-| --- | --- |
-| `npm run dev` | Start in development mode with hot reload (tsx watch) |
-| `npm run build` | Compile TypeScript to `dist/` |
-| `npm start` | Run the compiled production build |
-| `npm run deploy-commands` | Register slash commands with Discord API |
-| `npm test` | Run all tests with Vitest |
-| `npm run test:watch` | Run tests in watch mode |
-| `npm run test:coverage` | Run tests with coverage report |
-| `npm run lint` | Lint and auto-fix source files (ESLint) |
-| `npm run format` | Format source files with Prettier |
+### Bot joins voice but no audio
 
-## 🛠️ Tech Stack
+Check container logs first:
 
-| Technology | Purpose |
-| --- | --- |
-| [**discord.js**](https://discord.js.org/) v14 | Discord API client |
-| [**@discordjs/voice**](https://discord.js.org/docs/packages/voice/stable) | Voice connections and audio playback |
-| [**yt-dlp**](https://github.com/yt-dlp/yt-dlp) via youtube-dl-exec | YouTube audio extraction |
-| [**youtube-sr**](https://github.com/DevAndromeda/youtube-sr) | YouTube search |
-| [**FFmpeg**](https://ffmpeg.org/) + opusscript | Audio transcoding and Opus encoding |
-| [**Winston**](https://github.com/winstonjs/winston) | Structured logging with levels and timestamps |
-| [**TypeScript**](https://www.typescriptlang.org/) 5.9 | Type-safe development |
-| [**Vitest**](https://vitest.dev/) | Testing framework |
-| [**ESLint**](https://eslint.org/) + [**Prettier**](https://prettier.io/) | Code quality and formatting |
+```bash
+docker compose -f docker-compose.prod.yml logs -f
+```
 
-## 🤝 Contributing
+Common causes:
 
-Contributions are welcome! Here's how to get started:
+- Expired or invalid YouTube cookie
+- YouTube rate limits or region restrictions
+- Missing Discord voice permissions in target channel
 
-1. **Fork** the repository
-2. **Clone** your fork:
-   ```bash
-   git clone https://github.com/your-username/MusicBox.git
-   ```
-3. **Create** a feature branch:
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
-4. **Make** your changes and ensure tests pass:
-   ```bash
-   npm test
-   ```
-5. **Commit** your changes:
-   ```bash
-   git commit -m "feat: add amazing feature"
-   ```
-6. **Push** to your branch:
-   ```bash
-   git push origin feature/amazing-feature
-   ```
-7. **Open** a Pull Request
+### Build fails on yt-dlp installation
 
-## 📄 License
+This repository installs `yt-dlp` from Debian packages in Docker image.
+If your base image changes, ensure `yt-dlp` is still installed and available in PATH.
 
-This project is licensed under the **ISC License** — see the [LICENSE](LICENSE) file for details.
+### Commands do not appear in Discord
 
----
+Run command deployment again:
 
-<div align="center">
+```bash
+docker compose -f docker-compose.prod.yml run --rm musicbox npm run deploy-commands
+```
 
-Made with ❤️ and 🎵
+## Security Notes
 
-**[⬆ Back to Top](#-music-box)**
+- Never commit `.env` or cookie files
+- Rotate Discord token immediately if leaked
+- Keep cookie refresh process private and host-side
 
-</div>
+## License
+
+ISC

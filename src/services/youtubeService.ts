@@ -198,7 +198,7 @@ function spawnYtdlp(args: string[]): Promise<string> {
             clearTimeout(timer);
             if (settled) return;
             settled = true;
-            reject(new Error(`Failed to spawn yt-dlp (${ytdlpBinary}): ${err.message}. Ensure it is installed: pip install yt-dlp`));
+            reject(new Error(`Failed to spawn yt-dlp (${ytdlpBinary}): ${err.message}. Ensure yt-dlp is installed and available in PATH.`));
         });
     });
 }
