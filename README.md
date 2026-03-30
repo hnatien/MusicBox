@@ -14,7 +14,7 @@ A Discord bot for playing music from YouTube with search, queue management, and 
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) >= 20.0.0
+- [Node.js](https://nodejs.org/) 22.x
 - [FFmpeg](https://ffmpeg.org/) installed and available in PATH
 - A Discord bot token from the [Developer Portal](https://discord.com/developers)
 
@@ -93,6 +93,26 @@ All configuration is managed through environment variables. See `.env.example` f
 | `npm run deploy-commands` | Register slash commands with Discord |
 | `npm run lint` | Lint and auto-fix source files |
 | `npm run format` | Format source files with Prettier |
+
+## Production with Docker
+
+1. Build and run in background:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+2. View logs:
+
+```bash
+docker compose -f docker-compose.prod.yml logs -f
+```
+
+3. Stop service:
+
+```bash
+docker compose -f docker-compose.prod.yml down
+```
 
 ## Tech Stack
 
