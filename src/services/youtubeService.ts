@@ -1,4 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { PassThrough, type Readable } from 'node:stream';
 import { YouTube } from 'youtube-sr';
 import type { Song } from '../models/song.js';
@@ -45,6 +48,9 @@ interface CacheEntry {
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const MAX_CACHE_SIZE = 500;
 const metadataCache = new Map<string, CacheEntry>();
+const COOKIE_FILE_PATH = join(tmpdir(), 'musicbox-youtube.cookies.txt');
+
+let lastCookieRaw = '';
 
 let ffmpegBinary = 'ffmpeg';
 try {
@@ -102,10 +108,50 @@ function getAuthFlags(): string[] {
     const rawCookie = process.env.YOUTUBE_COOKIE;
     const cookie = rawCookie?.replace(/^["']|["']$/g, '').trim();
     if (cookie) {
-        flags.push('--add-header', `Cookie:${cookie}`);
+        try {
+            ensureCookieFile(cookie);
+            flags.push('--cookies', COOKIE_FILE_PATH);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.warn(`Failed to prepare cookie file for yt-dlp: ${message}`);
+        }
     }
 
     return flags;
+}
+
+function ensureCookieFile(cookieString: string): void {
+    if (!cookieString || cookieString === lastCookieRaw) {
+        return;
+    }
+
+    const cookies = cookieString
+        .split(';')
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map((pair) => {
+            const separatorIndex = pair.indexOf('=');
+            if (separatorIndex <= 0) return null;
+            const name = pair.slice(0, separatorIndex).trim();
+            const value = pair.slice(separatorIndex + 1).trim();
+            if (!name || !value) return null;
+            return { name, value };
+        })
+        .filter((item): item is { name: string; value: string } => item !== null);
+
+    if (cookies.length === 0) {
+        throw new Error('YOUTUBE_COOKIE does not contain valid key=value pairs');
+    }
+
+    const lines = ['# Netscape HTTP Cookie File'];
+    const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 90;
+
+    for (const cookie of cookies) {
+        lines.push(`.youtube.com\tTRUE\t/\tTRUE\t${expiresAt}\t${cookie.name}\t${cookie.value}`);
+    }
+
+    writeFileSync(COOKIE_FILE_PATH, `${lines.join('\n')}\n`, 'utf8');
+    lastCookieRaw = cookieString;
 }
 
 function spawnYtdlp(args: string[]): Promise<string> {
