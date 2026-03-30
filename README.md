@@ -64,10 +64,7 @@ docker build -t music-box:latest .
 2. Run container:
 
 ```bash
-docker run --rm \
-    --name music-box \
-    --env-file .env \
-    music-box:latest
+ docker run --rm --name music-box --env-file .env music-box:latest
 ```
 
 3. For Railway:

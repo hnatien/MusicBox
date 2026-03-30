@@ -10,23 +10,30 @@ interface EnvironmentConfig {
     INACTIVITY_TIMEOUT: number;
 }
 
+function getEnv(name: string): string | undefined {
+    const value = process.env[name];
+    if (!value) return undefined;
+
+    return value.trim().replace(/^['"]|['"]$/g, '');
+}
+
 function validateEnv(): EnvironmentConfig {
     const requiredVars = ['DISCORD_TOKEN', 'CLIENT_ID'] as const;
 
     for (const varName of requiredVars) {
-        if (!process.env[varName]) {
+        if (!getEnv(varName)) {
             throw new Error(`Missing required environment variable: ${varName}`);
         }
     }
 
     return {
-        DISCORD_TOKEN: process.env.DISCORD_TOKEN!,
-        CLIENT_ID: process.env.CLIENT_ID!,
-        DEV_GUILD_ID: process.env.DEV_GUILD_ID || undefined,
-        LOG_LEVEL: process.env.LOG_LEVEL || 'info',
-        DEFAULT_VOLUME: parseInt(process.env.DEFAULT_VOLUME || '50', 10),
-        MAX_QUEUE_SIZE: parseInt(process.env.MAX_QUEUE_SIZE || '100', 10),
-        INACTIVITY_TIMEOUT: parseInt(process.env.INACTIVITY_TIMEOUT || '300', 10),
+        DISCORD_TOKEN: getEnv('DISCORD_TOKEN')!,
+        CLIENT_ID: getEnv('CLIENT_ID')!,
+        DEV_GUILD_ID: getEnv('DEV_GUILD_ID') || undefined,
+        LOG_LEVEL: getEnv('LOG_LEVEL') || 'info',
+        DEFAULT_VOLUME: parseInt(getEnv('DEFAULT_VOLUME') || '50', 10),
+        MAX_QUEUE_SIZE: parseInt(getEnv('MAX_QUEUE_SIZE') || '100', 10),
+        INACTIVITY_TIMEOUT: parseInt(getEnv('INACTIVITY_TIMEOUT') || '300', 10),
     };
 }
 

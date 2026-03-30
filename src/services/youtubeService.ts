@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { PassThrough, type Readable } from 'node:stream';
 import { YouTube } from 'youtube-sr';
 import type { Song } from '../models/song.js';
@@ -21,12 +21,15 @@ const CACHE_TTL_MS = 60 * 60 * 1000;
 const MAX_CACHE_SIZE = 500;
 const metadataCache = new Map<string, CacheEntry>();
 
-let ffmpegBinary = 'ffmpeg';
+let ffmpegBinary = process.env.FFMPEG_BINARY?.trim() || 'ffmpeg';
 try {
     const ffmpegStatic = await import('ffmpeg-static');
     const resolved = ffmpegStatic.default ?? ffmpegStatic;
     if (typeof resolved === 'string') {
-        ffmpegBinary = resolved;
+        const hasSystemFfmpeg = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status === 0;
+        if (!hasSystemFfmpeg || process.platform === 'win32') {
+            ffmpegBinary = resolved;
+        }
     }
 } catch {
 }
@@ -346,12 +349,23 @@ function spawnFfmpegStream(audioUrl: string): Readable {
     ];
 
     const ffmpegProc: ChildProcess = spawn(ffmpegBinary, ffmpegArgs, {
-        stdio: ['ignore', 'pipe', 'ignore'],
+        stdio: ['ignore', 'pipe', 'pipe'],
     });
 
     const passThrough = new PassThrough();
+    const stderrChunks: Buffer[] = [];
+    let hasOutput = false;
 
     ffmpegProc.stdout!.pipe(passThrough);
+    ffmpegProc.stdout!.on('data', () => {
+        hasOutput = true;
+    });
+
+    ffmpegProc.stderr!.on('data', (d: Buffer) => {
+        if (stderrChunks.length < 20) {
+            stderrChunks.push(d);
+        }
+    });
 
     ffmpegProc.stdout!.on('error', (err: Error) => {
         passThrough.destroy(err);
@@ -361,7 +375,12 @@ function spawnFfmpegStream(audioUrl: string): Readable {
         passThrough.destroy(err);
     });
 
-    ffmpegProc.on('close', () => {
+    ffmpegProc.on('close', (code) => {
+        if (code !== 0 && !hasOutput) {
+            const stderr = Buffer.concat(stderrChunks).toString().trim();
+            passThrough.destroy(new Error(`ffmpeg exited with code ${code}: ${stderr || 'unknown error'}`));
+            return;
+        }
         passThrough.end();
     });
 
