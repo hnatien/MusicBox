@@ -72,8 +72,9 @@ docker run --rm \
 
 3. For Railway:
 
-- Keep `Pre-deploy Command`: `npm run build`
-- Keep `Custom Start Command`: `npm start`
+- If Railway is using this `Dockerfile`, leave `Pre-deploy Command` empty
+- If Railway is using this `Dockerfile`, leave `Custom Start Command` empty
+- The image already handles build and startup via `RUN npm run build` and `CMD ["node", "dist/index.js"]`
 - Enable teardown to avoid overlapping bot instances during rollout
 
 ## Configuration

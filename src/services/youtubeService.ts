@@ -65,20 +65,82 @@ function getAuthFlags(): string[] {
 }
 
 export async function searchByQuery(query: string, requestedBy: string): Promise<Song[]> {
-    const results = await YouTube.search(query, {
-        limit: SEARCH_RESULTS_COUNT,
-        type: 'video',
+    try {
+        const results = await YouTube.search(query, {
+            limit: SEARCH_RESULTS_COUNT,
+            type: 'video',
+        });
+
+        return results.map((video) => ({
+            title: video.title ?? 'Unknown Title',
+            url: video.url,
+            duration: Math.floor((video.duration ?? 0) / 1000),
+            durationFormatted: formatDuration(Math.floor((video.duration ?? 0) / 1000)),
+            thumbnail: video.thumbnail?.url ?? '',
+            channelName: video.channel?.name ?? 'Unknown Channel',
+            requestedBy,
+        }));
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.warn(`youtube-sr search failed, falling back to yt-dlp: ${message}`);
+        return searchByQueryWithYtdlp(query, requestedBy);
+    }
+}
+
+async function searchByQueryWithYtdlp(query: string, requestedBy: string): Promise<Song[]> {
+    const cookieFlags = getAuthFlags();
+
+    const result = await new Promise<any>((resolve, reject) => {
+        const args = [
+            `ytsearch${SEARCH_RESULTS_COUNT}:${query}`,
+            '--dump-single-json',
+            '--flat-playlist',
+            '--no-warnings',
+            '--no-check-certificates',
+            ...cookieFlags,
+        ];
+
+        const proc = spawn(ytdlpBinary, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+        const stdoutChunks: Buffer[] = [];
+        let stderr = '';
+
+        proc.stdout!.on('data', (d: Buffer) => { stdoutChunks.push(d); });
+        proc.stderr!.on('data', (d: Buffer) => { stderr += d.toString(); });
+
+        proc.on('close', (code) => {
+            if (code !== 0) {
+                reject(new Error(`yt-dlp search failed (code ${code}): ${stderr}`));
+                return;
+            }
+            try {
+                resolve(JSON.parse(Buffer.concat(stdoutChunks).toString()));
+            } catch {
+                reject(new Error('Failed to parse yt-dlp search JSON output'));
+            }
+        });
+
+        proc.on('error', (err: Error) => {
+            reject(new Error(`Failed to spawn yt-dlp (${ytdlpBinary}): ${err.message}`));
+        });
     });
 
-    return results.map((video) => ({
-        title: video.title ?? 'Unknown Title',
-        url: video.url,
-        duration: Math.floor((video.duration ?? 0) / 1000),
-        durationFormatted: formatDuration(Math.floor((video.duration ?? 0) / 1000)),
-        thumbnail: video.thumbnail?.url ?? '',
-        channelName: video.channel?.name ?? 'Unknown Channel',
-        requestedBy,
-    }));
+    const entries = (result.entries as any[]) || [];
+    return entries
+        .filter((entry) => entry.url || entry.id)
+        .map((entry) => {
+            const duration = Number(entry.duration) || 0;
+            const videoId = entry.id || entry.url;
+
+            return {
+                title: entry.title || 'Unknown Title',
+                url: `https://www.youtube.com/watch?v=${videoId}`,
+                duration,
+                durationFormatted: formatDuration(duration),
+                thumbnail: entry.thumbnails?.[0]?.url || entry.thumbnail || '',
+                channelName: entry.uploader || entry.channel || 'Unknown Channel',
+                requestedBy,
+            };
+        });
 }
 
 export async function getInfoByUrl(url: string, requestedBy: string): Promise<Song> {
