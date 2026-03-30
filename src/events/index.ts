@@ -7,6 +7,11 @@ import { logger } from '../core/logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+function isRunnableModuleFile(file: string): boolean {
+    if (file.endsWith('.d.ts')) return false;
+    return file.endsWith('.ts') || file.endsWith('.js');
+}
+
 interface BotEvent<K extends keyof ClientEvents = keyof ClientEvents> {
     name: K;
     once?: boolean;
@@ -15,7 +20,7 @@ interface BotEvent<K extends keyof ClientEvents = keyof ClientEvents> {
 
 export async function loadEvents(client: MusicClient): Promise<void> {
     const eventFiles = readdirSync(__dirname).filter(
-        (file) => (file.endsWith('.ts') || file.endsWith('.js')) && file !== 'index.ts' && file !== 'index.js',
+        (file) => isRunnableModuleFile(file) && file !== 'index.ts' && file !== 'index.js',
     );
 
     for (const file of eventFiles) {
