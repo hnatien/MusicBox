@@ -21,6 +21,7 @@ Built with TypeScript · discord.js v14 · Slash Commands
 - [Demo](#-demo)
 - [Prerequisites](#-prerequisites)
 - [Getting Started](#-getting-started)
+- [Docker Deployment (Production)](#-docker-deployment-production)
 - [Configuration](#%EF%B8%8F-configuration)
 - [Commands](#-commands)
 - [Architecture](#-architecture)
@@ -110,6 +111,50 @@ npm run dev
 # Production
 npm run build
 npm start
+```
+
+## 🐳 Docker Deployment (Production)
+
+This project includes a production-ready Docker setup with:
+
+- Multi-stage build (small runtime image)
+- `NODE_ENV=production`
+- Non-root runtime user
+- `yt-dlp` preinstalled in container
+- `restart: unless-stopped` via Compose
+
+### 1. Prepare Environment
+
+```bash
+cp .env.example .env
+```
+
+Update `.env` with your real values (`DISCORD_TOKEN`, `CLIENT_ID`, etc.).
+
+### 2. Build and Run with Compose
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+### 3. Check Logs
+
+```bash
+docker compose -f docker-compose.prod.yml logs -f
+```
+
+### 4. Stop
+
+```bash
+docker compose -f docker-compose.prod.yml down
+```
+
+### Optional: Register Slash Commands in Container
+
+Run once when needed (after changing command definitions):
+
+```bash
+docker compose -f docker-compose.prod.yml run --rm musicbox npm run deploy-commands
 ```
 
 ## ⚙️ Configuration

@@ -1,0 +1,11 @@
+services:
+  musicbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: musicbox:latest
+    container_name: musicbox
+    env_file:
+      - .env
+    restart: unless-stopped
+    init: true
