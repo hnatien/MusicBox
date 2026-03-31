@@ -1,5 +1,5 @@
 import { createCanvas, GlobalFonts, loadImage, type Image } from '@napi-rs/canvas';
-import { getEmojiUrl } from './constants.js';
+import { getEmojiUrl, APP_EMOJIS } from './constants.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -38,6 +38,18 @@ export async function renderHelpImage(categories: HelpCategory[]): Promise<Buffe
     const fontStack = '"Inter", sans-serif';
 
     const emojiCache = new Map<string, Image>();
+
+    // Pre-load common icons
+    const commonEmojiIds = [APP_EMOJIS.MUSIC_NOTES];
+    for (const id of commonEmojiIds) {
+        try {
+            const img = await loadImage(getEmojiUrl(id));
+            emojiCache.set(id, img);
+        } catch (e) {
+            console.warn(`Failed to pre-load emoji ${id}`);
+        }
+    }
+
     for (const cat of categories) {
         for (const cmd of cat.commands) {
             if (cmd.emojiId && !emojiCache.has(cmd.emojiId)) {
@@ -74,10 +86,17 @@ export async function renderHelpImage(categories: HelpCategory[]): Promise<Buffe
     ctx.roundRect(padding + 5 * scale, padding + 10 * scale, 80 * scale, 80 * scale, 18 * scale);
     ctx.fill();
     
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = `600 ${44 * scale}px ${fontStack}`;
-    ctx.textAlign = 'center';
-    ctx.fillText('♫', padding + 45 * scale, padding + 68 * scale);
+    // Draw the new music notes emoji from Discord
+    if (emojiCache.has(APP_EMOJIS.MUSIC_NOTES)) {
+        const img = emojiCache.get(APP_EMOJIS.MUSIC_NOTES)!;
+        const imgP = 15 * scale;
+        ctx.drawImage(img, padding + 5 * scale + imgP, padding + 10 * scale + imgP, 80 * scale - imgP * 2, 80 * scale - imgP * 2);
+    } else {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = `600 ${44 * scale}px ${fontStack}`;
+        ctx.textAlign = 'center';
+        ctx.fillText('♫', padding + 45 * scale, padding + 68 * scale);
+    }
     ctx.textAlign = 'left';
 
     ctx.fillStyle = '#FFFFFF';

@@ -22,7 +22,7 @@ export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaus
     const playPauseButton = new ButtonBuilder()
         .setCustomId('player-pause-resume')
         .setEmoji({ id: isPaused ? APP_EMOJIS.PLAY : APP_EMOJIS.PAUSE })
-        .setStyle(ButtonStyle.Secondary);
+        .setStyle(ButtonStyle.Secondary); // Vẫn dùng Secondary để giữ nền xám nhưng icon trắng sẽ nổi bật hơn
 
     const skipButton = new ButtonBuilder()
         .setCustomId('player-skip')
