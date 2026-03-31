@@ -13,7 +13,7 @@ export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaus
         .setAuthor({ name: song.channelName.toUpperCase() })
         .setTitle(song.title)
         .setURL(song.url)
-        .setThumbnail(song.thumbnail || null)
+        .setImage(song.thumbnail || null)
         .setDescription(
             `\n**${elapsed}** ${progressBar} ${total}\n\n` +
             `*Shared by <@${song.requestedBy}>*`
