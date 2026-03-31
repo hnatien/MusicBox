@@ -5,7 +5,7 @@ import { logger } from '../core/logger.js';
 import * as musicPlayer from '../services/musicPlayer.js';
 import * as queueManager from '../services/queueManager.js';
 import { createErrorEmbed, createNowPlayingEmbed, createStoppedEmbed, createQueueEmbed } from '../utils/embed.js';
-import { QUEUE_PAGE_SIZE } from '../utils/constants.js';
+import { QUEUE_PAGE_SIZE, formatAppEmoji } from '../utils/constants.js';
 
 const cooldowns = new Collection<string, Collection<string, number>>();
 
@@ -59,13 +59,14 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
                     case 'queue-clear':
                         queue.songs = [];
                         await interaction.update({
+                            content: `${formatAppEmoji('CHECK_CIRCLE')} Cleared queue.`,
                             embeds: [createQueueEmbed([], queue.currentSong, [], 1, 1, 0).embeds[0]],
                             components: []
                         });
                         break;
                     case 'queue-remove-last':
                         if (queue.songs.length > 0) {
-                            queue.songs.pop();
+                            const removed = queue.songs.pop();
                             const newTotal = queue.songs.length;
                             const newTPages = Math.max(1, Math.ceil(newTotal / QUEUE_PAGE_SIZE));
                             const newUpNext = queue.songs.slice(0, QUEUE_PAGE_SIZE);
@@ -78,6 +79,7 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
                                 newTotal
                             );
                             await interaction.update({
+                                content: `${formatAppEmoji('CHECK_CIRCLE')} Removed **${removed?.title}** from queue.`,
                                 embeds: updatedResult.embeds,
                                 components: updatedResult.components
                             });
@@ -135,7 +137,7 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
                         totalSongsCount
                     );
                     await interaction.update({
-                        content: `✅ Removed **${removedSong.title}** (requested by <@${removedSong.requestedBy}>) from queue.`,
+                        content: `${formatAppEmoji('CHECK_CIRCLE')} Removed **${removedSong.title}** (requested by <@${removedSong.requestedBy}>) from queue.`,
                         embeds: result.embeds,
                         components: result.components
                     });

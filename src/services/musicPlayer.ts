@@ -259,7 +259,15 @@ export function resume(guildId: string): boolean {
     return true;
 }
 
-function startProgressUpdate(guildId: string): void {
+export function stopProgressUpdate(guildId: string): void {
+    const queue = queueManager.getQueue(guildId);
+    if (queue?.progressInterval) {
+        clearInterval(queue.progressInterval);
+        queue.progressInterval = undefined;
+    }
+}
+
+export function startProgressUpdate(guildId: string): void {
     const queue = queueManager.getQueue(guildId);
     if (!queue || !queue.nowPlayingMessage || !queue.currentSong) return;
 
@@ -292,14 +300,6 @@ function startProgressUpdate(guildId: string): void {
             stopProgressUpdate(guildId);
         });
     }, 15_000);
-}
-
-function stopProgressUpdate(guildId: string): void {
-    const queue = queueManager.getQueue(guildId);
-    if (queue?.progressInterval) {
-        clearInterval(queue.progressInterval);
-        queue.progressInterval = undefined;
-    }
 }
 
 export function setVolume(guildId: string, volume: number): boolean {

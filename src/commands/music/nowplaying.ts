@@ -29,9 +29,17 @@ const nowPlayingCommand: Command = {
             elapsed = Math.floor((Date.now() - queue.playStartTime) / 1000);
         }
 
-        const result = createNowPlayingEmbed(queue.currentSong, elapsed, queue.isPaused);
+        const result = createNowPlayingEmbed(queue.currentSong, elapsed, queue.isPaused, queue.repeatMode, queue.repeatCount);
 
-        await interaction.reply({ embeds: result.embeds, components: result.components });
+        const message = await interaction.reply({ embeds: result.embeds, components: result.components, fetchReply: true });
+        
+        // Update the current now playing message to this one
+        // and restart the progress update interval
+        if (message) {
+            queue.nowPlayingMessage = message;
+            const { startProgressUpdate } = await import('../../services/musicPlayer.js');
+            startProgressUpdate(interaction.guildId!);
+        }
     },
 };
 
