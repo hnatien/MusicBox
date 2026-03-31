@@ -4,7 +4,7 @@ import type { MusicClient } from '../core/client.js';
 import { logger } from '../core/logger.js';
 import * as musicPlayer from '../services/musicPlayer.js';
 import * as queueManager from '../services/queueManager.js';
-import { createErrorEmbed } from '../utils/embed.js';
+import { createErrorEmbed, createNowPlayingEmbed } from '../utils/embed.js';
 
 const cooldowns = new Collection<string, Collection<string, number>>();
 
@@ -43,6 +43,20 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
                         break;
                     case 'player-stop':
                         musicPlayer.stop(interaction.guildId);
+                        await interaction.deferUpdate();
+                        break;
+                    case 'player-repeat':
+                        const modes: ('off' | 'one' | 'all')[] = ['off', 'one', 'all'];
+                        const nextMode = modes[(modes.indexOf(queue.repeatMode) + 1) % modes.length];
+                        queue.repeatMode = nextMode;
+
+                        // Update UI
+                        if (queue.nowPlayingMessage && queue.currentSong) {
+                            const playbackDuration = (queue.player.state as any).resource?.playbackDuration || 0;
+                            const elapsedSeconds = Math.floor(playbackDuration / 1000);
+                            const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, queue.isPaused, queue.repeatMode);
+                            await queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(() => { });
+                        }
                         await interaction.deferUpdate();
                         break;
                 }

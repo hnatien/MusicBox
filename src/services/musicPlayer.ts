@@ -66,8 +66,24 @@ export async function play(
     queue.player.removeAllListeners(AudioPlayerStatus.Idle);
     queue.player.removeAllListeners('error');
 
-    const queueSong = queueManager.getNextSong(guildId);
-    let song = queueSong ?? queueManager.getNextMixSong(guildId);
+    let song: Song | undefined;
+
+    if (queue.currentSong) {
+        if (queue.repeatMode === 'one') {
+            song = queue.currentSong;
+        } else if (queue.repeatMode === 'all') {
+            queue.songs.push(queue.currentSong);
+            song = queueManager.getNextSong(guildId);
+        } else {
+            song = queueManager.getNextSong(guildId);
+        }
+    } else {
+        song = queueManager.getNextSong(guildId);
+    }
+
+    if (!song) {
+        song = queueManager.getNextMixSong(guildId);
+    }
 
     if (!song) {
         queue.currentSong = null;
@@ -131,7 +147,7 @@ export async function play(
         } else {
             const textChannel = client.channels.cache.get(queue.textChannelId) as TextBasedChannel | undefined;
             if (textChannel && 'send' in textChannel) {
-                const result = createNowPlayingEmbed(song, 0, false);
+                const result = createNowPlayingEmbed(song, 0, false, queue.repeatMode);
                 const message = await textChannel.send({ embeds: result.embeds, components: result.components }).catch(() => { });
                 if (message) {
                     queue.nowPlayingMessage = message;
@@ -180,7 +196,7 @@ export function pause(guildId: string): boolean {
             const state = queue.player.state as any; // Cast to any to access resource safely across status types
             elapsedSeconds = Math.floor(state.resource.playbackDuration / 1000);
         }
-        const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, true);
+        const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, true, queue.repeatMode);
         queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(() => {});
     }
     
@@ -202,7 +218,7 @@ export function resume(guildId: string): boolean {
             const state = queue.player.state as AudioPlayerPlayingState;
             elapsedSeconds = Math.floor(state.resource.playbackDuration / 1000);
         }
-        const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, false);
+        const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, false, queue.repeatMode);
         queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(() => {});
     }
     
@@ -237,7 +253,7 @@ function startProgressUpdate(guildId: string): void {
             return;
         }
 
-        const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, queue.isPaused);
+        const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, queue.isPaused, queue.repeatMode);
         await queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(() => {
             stopProgressUpdate(guildId);
         });

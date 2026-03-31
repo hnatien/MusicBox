@@ -3,10 +3,16 @@ import { COLORS, EMOJIS, PROGRESS_BAR_LENGTH, QUEUE_PAGE_SIZE, APP_EMOJIS, forma
 import { createProgressBar, formatDuration, formatRemainingDuration } from './formatDuration.js';
 import type { Song } from '../models/song.js';
 
-export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaused: boolean = false): { embeds: EmbedBuilder[], components: ActionRowBuilder<ButtonBuilder>[] } {
+export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaused: boolean = false, repeatMode: 'off' | 'one' | 'all' = 'off'): { embeds: EmbedBuilder[], components: ActionRowBuilder<ButtonBuilder>[] } {
     const progressBar = createProgressBar(elapsedSeconds, song.duration, 20);
     const elapsed = formatDuration(elapsedSeconds);
     const total = song.durationFormatted;
+
+    const repeatLabels = {
+        off: '',
+        one: '\n\n*Repeat: One*',
+        all: '\n\n*Repeat: All*'
+    };
 
     const embed = new EmbedBuilder()
         .setColor(0x2B2D31)
@@ -16,25 +22,31 @@ export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaus
         .setImage(song.thumbnail || null)
         .setDescription(
             `\n**${elapsed}** ${progressBar} ${total}\n\n` +
-            `${formatAppEmoji('HEART')} *Shared by <@${song.requestedBy}>*`
+            `${formatAppEmoji('HEART')} *Shared by <@${song.requestedBy}>*` +
+            `${repeatLabels[repeatMode]}`
         );
 
     const playPauseButton = new ButtonBuilder()
         .setCustomId('player-pause-resume')
         .setEmoji({ id: isPaused ? APP_EMOJIS.PLAY : APP_EMOJIS.PAUSE })
-        .setStyle(ButtonStyle.Secondary); // Vẫn dùng Secondary để giữ nền xám nhưng icon trắng sẽ nổi bật hơn
+        .setStyle(ButtonStyle.Secondary);
 
     const skipButton = new ButtonBuilder()
         .setCustomId('player-skip')
         .setEmoji({ id: APP_EMOJIS.SKIP })
         .setStyle(ButtonStyle.Secondary);
 
+    const repeatButton = new ButtonBuilder()
+        .setCustomId('player-repeat')
+        .setEmoji({ id: APP_EMOJIS.REPEAT })
+        .setStyle(repeatMode === 'off' ? ButtonStyle.Secondary : ButtonStyle.Primary);
+
     const stopButton = new ButtonBuilder()
         .setCustomId('player-stop')
         .setEmoji({ id: APP_EMOJIS.STOP })
         .setStyle(ButtonStyle.Secondary);
 
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(playPauseButton, skipButton, stopButton);
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(playPauseButton, skipButton, repeatButton, stopButton);
 
     return { embeds: [embed], components: [row] };
 }

@@ -16,6 +16,7 @@ export interface GuildQueue {
     inactivityTimer: ReturnType<typeof setTimeout> | null;
     nowPlayingMessage?: Message;
     progressInterval?: ReturnType<typeof setInterval>;
+    repeatMode: 'off' | 'one' | 'all';
     mixContext?: {
         songs: Song[];
         index: number;
