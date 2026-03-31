@@ -15,14 +15,19 @@ export function formatDuration(seconds: number): string {
     return `${minutes}:${paddedSecs}`;
 }
 
-export function createProgressBar(current: number, total: number, length: number = 20): string {
-    if (total <= 0) return '▬'.repeat(length);
+export function createProgressBar(current: number, total: number, length: number = 15): string {
+    if (total <= 0) return '───';
 
-    const progress = Math.min(current / total, 1);
-    const sliderPos = Math.round(progress * (length - 1));
+    const progress = Math.min(Math.max(current / total, 0), 1);
+    const filledLength = Math.round(length * progress);
+    
+    // Apple Music Style: Ultra-thin lines with a clean circular handle
+    const filled = '━'.repeat(filledLength);
+    const empty = '─'.repeat(length - filledLength);
+    const handle = '●'; 
 
-    const before = '▬'.repeat(sliderPos);
-    const after = '▬'.repeat(length - 1 - sliderPos);
-
-    return `${before}🔘${after}`;
+    if (filledLength === 0) return handle + empty;
+    if (filledLength === length) return filled + handle;
+    
+    return filled + handle + empty;
 }

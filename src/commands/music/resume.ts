@@ -41,7 +41,7 @@ const resumeCommand: Command = {
         musicPlayer.resume(interaction.guildId!);
 
         await interaction.reply({
-            embeds: [createSuccessEmbed(`${EMOJIS.RESUME} Resumed **${queue.currentSong.title}**`)],
+            embeds: [createSuccessEmbed(`Resumed **${queue.currentSong.title}**`)],
         });
     },
 };

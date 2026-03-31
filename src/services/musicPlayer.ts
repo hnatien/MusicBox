@@ -129,8 +129,8 @@ export async function play(
         } else {
             const textChannel = client.channels.cache.get(queue.textChannelId) as TextBasedChannel | undefined;
             if (textChannel && 'send' in textChannel) {
-                const embed = createNowPlayingEmbed(song, 0);
-                const message = await textChannel.send({ embeds: [embed] }).catch(() => { });
+                const result = createNowPlayingEmbed(song, 0, false);
+                const message = await textChannel.send({ embeds: result.embeds, components: result.components }).catch(() => { });
                 if (message) {
                     queue.nowPlayingMessage = message;
                     startProgressUpdate(guildId);
@@ -170,6 +170,18 @@ export function pause(guildId: string): boolean {
     queue.player.pause();
     queue.isPaused = true;
     stopProgressUpdate(guildId);
+    
+    // Update UI immediately
+    if (queue.nowPlayingMessage && queue.currentSong) {
+        let elapsedSeconds = 0;
+        if (queue.player.state.status === AudioPlayerStatus.Paused) {
+            const state = queue.player.state as AudioPlayerPlayingState;
+            elapsedSeconds = Math.floor(state.resource.playbackDuration / 1000);
+        }
+        const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, true);
+        queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(() => {});
+    }
+    
     return true;
 }
 
@@ -180,6 +192,18 @@ export function resume(guildId: string): boolean {
     queue.player.unpause();
     queue.isPaused = false;
     startProgressUpdate(guildId);
+    
+    // Update UI immediately 
+    if (queue.nowPlayingMessage && queue.currentSong) {
+        let elapsedSeconds = 0;
+        if (queue.player.state.status === AudioPlayerStatus.Playing) {
+            const state = queue.player.state as AudioPlayerPlayingState;
+            elapsedSeconds = Math.floor(state.resource.playbackDuration / 1000);
+        }
+        const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, false);
+        queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(() => {});
+    }
+    
     return true;
 }
 
@@ -211,8 +235,8 @@ function startProgressUpdate(guildId: string): void {
             return;
         }
 
-        const embed = createNowPlayingEmbed(queue.currentSong, elapsedSeconds);
-        await queue.nowPlayingMessage.edit({ embeds: [embed] }).catch(() => {
+        const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, queue.isPaused);
+        await queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(() => {
             stopProgressUpdate(guildId);
         });
     }, 15_000);

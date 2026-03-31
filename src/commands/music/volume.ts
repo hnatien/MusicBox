@@ -44,7 +44,7 @@ const volumeCommand: Command = {
         musicPlayer.setVolume(interaction.guildId!, level);
 
         await interaction.reply({
-            embeds: [createSuccessEmbed(`${EMOJIS.VOLUME} Volume set to **${level}%**`)],
+            embeds: [createSuccessEmbed(`Volume set to **${level}%**`)],
         });
     },
 };

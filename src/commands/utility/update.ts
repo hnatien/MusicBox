@@ -12,65 +12,50 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
     {
+        version: '1.3.0',
+        date: '2026-03-31',
+        improved: [
+            'Refactor toàn bộ UI theo phong cách Apple Music Minimalism',
+            'Đồng bộ hóa hệ thống biểu tượng SF Symbols và typography',
+            'Tối ưu hóa Now Playing với cover art lớn và thanh tiến trình siêu mỏng',
+        ],
+    },
+    {
         version: '1.2.0',
         date: '2026-02-21',
         added: [
-            'Command `/update` — xem changelog ngay trong Discord',
+            'Command `/update` · Xem changelog trong Discord',
         ],
         improved: [
             'Xử lý YouTube playlist và Mix URL chính xác hơn',
-            'Cache metadata giảm thời gian chờ khi phát lại bài cũ',
-        ],
-    },
-    {
-        version: '1.1.0',
-        date: '2026-02-18',
-        added: [
-            'Hỗ trợ YouTube Music URL',
-            'Command `/volume` — điều chỉnh âm lượng 1–100',
-            'Phân trang cho `/queue`',
-        ],
-        improved: [
-            'Tự động reconnect khi mất kết nối voice',
-        ],
-    },
-    {
-        version: '1.0.0',
-        date: '2026-02-15',
-        added: [
-            'Phát nhạc từ YouTube qua `/play`',
-            'Tìm kiếm và chọn bài qua `/search`',
-            'Điều khiển: `/skip`, `/stop`, `/pause`, `/resume`',
-            'Xem hàng đợi qua `/queue`',
+            'Cache metadata giảm thời gian chờ',
         ],
     },
 ];
 
 const CATEGORY_LABELS: { key: keyof Pick<ChangelogEntry, 'added' | 'improved' | 'fixed'>; label: string }[] = [
-    { key: 'added', label: '✨ New' },
-    { key: 'improved', label: '⚡ Improved' },
-    { key: 'fixed', label: '🐛 Fixed' },
+    { key: 'added', label: 'NEW' },
+    { key: 'improved', label: 'IMPROVED' },
+    { key: 'fixed', label: 'FIXED' },
 ];
-
-const DEFAULT_DISPLAY_COUNT = 3;
 
 const updateCommand: Command = {
     data: new SlashCommandBuilder()
         .setName('update')
-        .setDescription('Xem những cập nhật mới nhất của bot'),
+        .setDescription('Xem những cập nhật mới nhất'),
     cooldown: 10,
 
     execute: async (interaction) => {
-        const entries = CHANGELOG.slice(0, DEFAULT_DISPLAY_COUNT);
+        const entries = CHANGELOG.slice(0, 2);
 
         const description = entries
             .map((entry) => {
-                const header = `### v${entry.version}  •  ${entry.date}`;
+                const header = `### v${entry.version}  ·  ${entry.date}`;
                 const sections = CATEGORY_LABELS
                     .filter(({ key }) => entry[key]?.length)
                     .map(({ key, label }) =>
-                        `> **${label}**\n` +
-                        entry[key]!.map((item) => `> • ${item}`).join('\n'),
+                        `**${label}**\n` +
+                        entry[key]!.map((item) => `· ${item}`).join('\n'),
                     )
                     .join('\n');
                 return `${header}\n${sections}`;
@@ -79,12 +64,8 @@ const updateCommand: Command = {
 
         const embed = new EmbedBuilder()
             .setColor(COLORS.PRIMARY)
-            .setTitle('Music Box — Changelog')
-            .setDescription(description)
-            .setFooter({
-                text: `Hiển thị ${entries.length}/${CHANGELOG.length} phiên bản`,
-            })
-            .setTimestamp();
+            .setAuthor({ name: 'MUSIC BOX CHANGELOG' })
+            .setDescription(description);
 
         await interaction.reply({ embeds: [embed] });
     },

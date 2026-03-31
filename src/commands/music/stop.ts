@@ -35,7 +35,7 @@ const stopCommand: Command = {
         musicPlayer.stop(interaction.guildId!);
 
         await interaction.reply({
-            embeds: [createSuccessEmbed(`${EMOJIS.STOP} Playback stopped and queue cleared.`)],
+            embeds: [createSuccessEmbed(`Playback stopped and queue cleared.`)],
         });
     },
 };

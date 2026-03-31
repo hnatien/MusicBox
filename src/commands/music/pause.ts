@@ -41,7 +41,7 @@ const pauseCommand: Command = {
         musicPlayer.pause(interaction.guildId!);
 
         await interaction.reply({
-            embeds: [createSuccessEmbed(`${EMOJIS.PAUSE} Paused **${queue.currentSong.title}**`)],
+            embeds: [createSuccessEmbed(`Paused **${queue.currentSong.title}**`)],
         });
     },
 };

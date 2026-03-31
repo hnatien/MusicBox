@@ -34,7 +34,7 @@ const skipCommand: Command = {
         musicPlayer.skip(interaction.guildId!);
 
         await interaction.reply({
-            embeds: [createSuccessEmbed(`${EMOJIS.SKIP} Skipped **${skippedTitle}**`)],
+            embeds: [createSuccessEmbed(`Skipped **${skippedTitle}**`)],
         });
     },
 };

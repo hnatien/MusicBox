@@ -1,32 +1,54 @@
-import { EmbedBuilder } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { COLORS, EMOJIS, PROGRESS_BAR_LENGTH, QUEUE_PAGE_SIZE } from './constants.js';
 import { createProgressBar, formatDuration } from './formatDuration.js';
 import type { Song } from '../models/song.js';
 
-export function createNowPlayingEmbed(song: Song, elapsedSeconds: number): EmbedBuilder {
-    const progressBar = createProgressBar(elapsedSeconds, song.duration, PROGRESS_BAR_LENGTH);
+export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaused: boolean = false): { embeds: EmbedBuilder[], components: ActionRowBuilder<ButtonBuilder>[] } {
+    const progressBar = createProgressBar(elapsedSeconds, song.duration, 15);
     const elapsed = formatDuration(elapsedSeconds);
+    const total = song.durationFormatted;
 
-    return new EmbedBuilder()
+    const embed = new EmbedBuilder()
         .setColor(COLORS.NOW_PLAYING)
-        .setTitle(`${EMOJIS.MUSIC} Now Playing`)
+        .setAuthor({ name: song.channelName.toUpperCase() })
+        .setTitle(song.title)
+        .setURL(song.url)
         .setDescription(
-            `**[${song.title}](${song.url})**\n` +
-            `${song.channelName}\n\n` +
-            `${progressBar}\n` +
-            `\`${elapsed} / ${song.durationFormatted}\`\n\n` +
-            `Requested by <@${song.requestedBy}>`,
+            `\n${progressBar}\n` +
+            `**${elapsed}** / ${total}\n\n` +
+            `*Shared by <@${song.requestedBy}>*`
         )
-        .setThumbnail(song.thumbnail || null);
+        .setImage(song.thumbnail || null);
+
+    const playPauseButton = new ButtonBuilder()
+        .setCustomId('player-pause-resume')
+        .setEmoji(isPaused ? EMOJIS.RESUME : EMOJIS.PAUSE)
+        .setStyle(ButtonStyle.Secondary);
+
+    const skipButton = new ButtonBuilder()
+        .setCustomId('player-skip')
+        .setEmoji(EMOJIS.SKIP)
+        .setStyle(ButtonStyle.Secondary);
+
+    const stopButton = new ButtonBuilder()
+        .setCustomId('player-stop')
+        .setEmoji(EMOJIS.STOP)
+        .setStyle(ButtonStyle.Danger);
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(playPauseButton, skipButton, stopButton);
+
+    return { embeds: [embed], components: [row] };
 }
 
 export function createSongAddedEmbed(song: Song, position: number): EmbedBuilder {
     return new EmbedBuilder()
         .setColor(COLORS.SUCCESS)
-        .setTitle(`${EMOJIS.SUCCESS} Added to Queue`)
+        .setAuthor({ name: 'ADDED TO QUEUE' })
+        .setTitle(song.title)
+        .setURL(song.url)
         .setDescription(
-            `**[${song.title}](${song.url})**\n` +
-            `${song.channelName} · \`${song.durationFormatted}\` · Position: **#${position}**`,
+            `**${song.channelName}** · \`${song.durationFormatted}\`\n` +
+            `Position **#${position}**`,
         )
         .setThumbnail(song.thumbnail || null);
 }
@@ -34,18 +56,19 @@ export function createSongAddedEmbed(song: Song, position: number): EmbedBuilder
 export function createPlaylistAddedEmbed(title: string, count: number): EmbedBuilder {
     return new EmbedBuilder()
         .setColor(COLORS.SUCCESS)
-        .setTitle(`${EMOJIS.SUCCESS} Playlist Added`)
-        .setDescription(`**${title}**\n${EMOJIS.MUSIC} \`${count}\` songs added to queue`);
+        .setAuthor({ name: 'PLAYLIST ADDED' })
+        .setTitle(title)
+        .setDescription(`\`${count}\` items queued`);
 }
 
 export function createMixStartedEmbed(title: string, firstSong: Song, totalCount: number): EmbedBuilder {
     return new EmbedBuilder()
         .setColor(COLORS.NOW_PLAYING)
-        .setTitle(`${EMOJIS.MUSIC} Mix Loaded`)
+        .setAuthor({ name: 'MIX LOADED' })
+        .setTitle(title)
         .setDescription(
-            `**${title}**\n` +
-            `\`${totalCount}\` songs · Next tracks will auto-queue\n\n` +
-            `Now playing: **[${firstSong.title}](${firstSong.url})**\n` +
+            `􀑬 \`${totalCount}\` items · Auto-queue enabled\n\n` +
+            `Now playing **[${firstSong.title}](${firstSong.url})**\n` +
             `${firstSong.channelName} · \`${firstSong.durationFormatted}\``,
         )
         .setThumbnail(firstSong.thumbnail || null);
@@ -55,16 +78,17 @@ export function createSearchEmbed(query: string, songs: Song[]): EmbedBuilder {
     const description = songs
         .map(
             (song, i) =>
-                `**${i + 1}.** [${song.title}](${song.url})\n` +
+                `\`${i + 1}\` **[${song.title}](${song.url})**\n` +
                 `╰ ${song.channelName} · \`${song.durationFormatted}\``,
         )
         .join('\n\n');
 
     return new EmbedBuilder()
         .setColor(COLORS.PRIMARY)
-        .setTitle(`${EMOJIS.SEARCH} Results for "${query}"`)
+        .setAuthor({ name: 'SEARCH RESULTS' })
+        .setTitle(`"${query}"`)
         .setDescription(description)
-        .setFooter({ text: 'Select a song using the menu below' });
+        .setFooter({ text: '􀊫 Select a song using the menu below' });
 }
 
 export function createQueueEmbed(
@@ -76,13 +100,14 @@ export function createQueueEmbed(
 ): EmbedBuilder {
     const embed = new EmbedBuilder()
         .setColor(COLORS.PRIMARY)
-        .setTitle(`${EMOJIS.QUEUE} Music Queue`);
+        .setAuthor({ name: 'MUSIC QUEUE' });
 
     let description = '';
 
     if (currentSong) {
-        description += `${EMOJIS.MUSIC} **Now Playing**\n`;
+        description += `**NOW PLAYING**\n`;
         description += `[${currentSong.title}](${currentSong.url}) · \`${currentSong.durationFormatted}\`\n\n`;
+        description += `**UP NEXT**\n`;
     }
 
     if (songs.length === 0) {
@@ -92,25 +117,29 @@ export function createQueueEmbed(
         description += songs
             .map(
                 (song, i) =>
-                    `\`${offset + i + 1}.\` [${song.title}](${song.url}) · \`${song.durationFormatted}\``,
+                    `\`${offset + i + 1}\` **[${song.title}](${song.url})**\n` +
+                    `╰ ${song.channelName} · \`${song.durationFormatted}\``,
             )
-            .join('\n');
+            .join('\n\n');
     }
 
-    embed.setDescription(description);
-
-    const songCount = totalSongs ?? songs.length;
-    embed.setFooter({ text: `Page ${page}/${totalPages} · ${songCount} song(s) in queue` });
+    if (totalSongs && totalSongs > 0) {
+        embed.setFooter({ text: `􀑬 ${totalSongs} songs in queue · Page ${page}/${totalPages}` });
+    }
 
     return embed;
 }
 
 export function createErrorEmbed(message: string): EmbedBuilder {
-    return new EmbedBuilder().setColor(COLORS.ERROR).setDescription(`${EMOJIS.ERROR} ${message}`);
+    return new EmbedBuilder()
+        .setColor(COLORS.ERROR)
+        .setAuthor({ name: 'System Error' })
+        .setDescription(message);
 }
 
 export function createSuccessEmbed(message: string): EmbedBuilder {
     return new EmbedBuilder()
         .setColor(COLORS.SUCCESS)
-        .setDescription(`${EMOJIS.SUCCESS} ${message}`);
+        .setAuthor({ name: 'Success' })
+        .setDescription(message);
 }

@@ -11,36 +11,33 @@ const helpCommand: Command = {
         const embed = new EmbedBuilder()
             .setColor(COLORS.PRIMARY)
             .setAuthor({
-                name: `${clientUser?.username || 'Music Box'} Help Center`,
-                iconURL: clientUser?.displayAvatarURL() || undefined,
+                name: 'MUSIC BOX HELP CENTER',
             })
-            .setDescription('Here is a list of all available commands.')
+            .setDescription('Explore all available commands.')
             .addFields(
                 {
-                    name: 'Music',
+                    name: 'MUSIC',
                     value: [
-                        '**/play** `<query>` — Play a song by URL or search term',
-                        '**/search** `<query>` — Search YouTube and pick a song',
-                        '**/skip** — Skip the current song',
-                        '**/stop** — Stop playback and clear the queue',
-                        '**/pause** — Pause the current song',
-                        '**/resume** — Resume playback',
-                        '**/volume** `<1-100>` — Set the volume',
-                        '**/queue** — View the song queue',
-                        '**/nowplaying** — Show current track info',
+                        '**/play** `<query>` · Play by URL or search',
+                        '**/search** `<query>` · Search and pick',
+                        '**/skip** · Go to next track',
+                        '**/stop** · End playback session',
+                        '**/nowplaying** · Show track details',
+                        '**/queue** · View upcoming tracks',
+                        '**/volume** `<1-100>` · Set audio level',
+                        '**/pause** · Halt playback',
+                        '**/resume** · Continue playback',
                     ].join('\n'),
                 },
                 {
-                    name: 'Utility',
+                    name: 'SYSTEM',
                     value: [
-                        '**/ping** — Show bot latency',
-                        '**/help** — Show this help message',
-                        '**/update** — Xem những cập nhật mới nhất',
+                        '**/ping** · Show latency',
+                        '**/help** · Show this menu',
+                        '**/update** · Recent changes',
                     ].join('\n'),
                 },
-            )
-            .setFooter({ text: 'Music Box' })
-            .setTimestamp();
+            );
 
         await interaction.reply({ embeds: [embed] });
     },
