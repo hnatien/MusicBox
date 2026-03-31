@@ -25,11 +25,19 @@ RUN apt-get update \
 ENV NODE_ENV=production
 
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/assets ./assets
 COPY --from=build /app/public ./public
+
+# Final check of installed node_modules size
+# RUN du -sh node_modules
+
+ENV NODE_ENV=production
+ENV PORT=3000
+
+EXPOSE 3000
 
 USER node
 ENTRYPOINT ["/usr/bin/tini", "--"]

@@ -9,7 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const runtimeExtension = extname(fileURLToPath(import.meta.url));
 const commandsDir = join(__dirname, '..', 'commands');
 
-async function deployCommands(): Promise<void> {
+export async function deployCommands(): Promise<void> {
     const commands: unknown[] = [];
 
     const commandDirs = readdirSync(commandsDir, { withFileTypes: true })
@@ -63,4 +63,6 @@ async function deployCommands(): Promise<void> {
     }
 }
 
-deployCommands();
+if (fileURLToPath(import.meta.url) === process.argv[1]) {
+    deployCommands();
+}

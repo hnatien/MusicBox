@@ -5,6 +5,7 @@ import { loadCommands } from './commands/index.js';
 import { loadEvents } from './events/index.js';
 import { startWebServer } from './services/webServer.js';
 import { database } from './services/database.js';
+import { deployCommands } from './scripts/deploy-commands.js';
 
 async function main(): Promise<void> {
     const client = new MusicClient();
@@ -15,6 +16,16 @@ async function main(): Promise<void> {
         logger.info('Successfully connected to Redis at startup');
     } catch (error) {
         logger.warn('Initial Redis connection failed, will retry on demand');
+    }
+
+    // Deploy commands for production
+    if (process.env.NODE_ENV === 'production') {
+        try {
+            await deployCommands();
+            logger.info('Commands successfully deployed for production');
+        } catch (error) {
+            logger.error('Failed to deploy commands on startup', { error });
+        }
     }
 
     await loadCommands(client);

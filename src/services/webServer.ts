@@ -38,6 +38,24 @@ export function startWebServer(client: MusicClient) {
         }
     });
 
+    app.get('/health', async (req, res) => {
+        try {
+            const isDatabaseHealthy = await database.isHealthy();
+            const status = {
+                status: 'up',
+                client: client.isReady() ? 'connected' : 'connecting',
+                database: isDatabaseHealthy ? 'healthy' : 'disconnected',
+                guilds: client.guilds.cache.size,
+                timestamp: new Date().toISOString()
+            };
+
+            const httpStatus = (client.isReady() && isDatabaseHealthy) ? 200 : 503;
+            res.status(httpStatus).json(status);
+        } catch (error) {
+            res.status(500).json({ status: 'down', error: 'Health check failed' });
+        }
+    });
+
     app.get('/', (req, res) => {
         res.sendFile(path.join(publicPath, 'index.html'));
     });
