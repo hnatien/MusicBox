@@ -87,6 +87,10 @@ const searchCommand: Command = {
                 });
 
                 const selectedIndex = parseInt(selection.values[0], 10);
+                if (!Number.isInteger(selectedIndex) || selectedIndex < 0 || selectedIndex >= results.length) {
+                    await selection.update({ embeds: [createErrorEmbed('Invalid selection.')], components: [] });
+                    return;
+                }
                 const song = results[selectedIndex];
 
                 // Get or create queue

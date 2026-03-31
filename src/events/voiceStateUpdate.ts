@@ -13,6 +13,13 @@ const voiceStateUpdateEvent: BotEvent<'voiceStateUpdate'> = {
         const queue = queueManager.getQueue(guildId);
         if (!queue) return;
 
+        // Cleanup if bot is kicked or leaves the voice channel
+        if (oldState.member?.id === botId && !newState.channelId) {
+            logger.info(`Bot left voice channel in guild ${guildId}, cleaning up queue`);
+            queueManager.deleteQueue(guildId);
+            return;
+        }
+
         const botVoiceChannel = oldState.guild.members.cache.get(botId)?.voice.channel;
         if (!botVoiceChannel) return;
 

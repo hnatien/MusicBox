@@ -1,5 +1,6 @@
 import type { AudioPlayer, VoiceConnection } from '@discordjs/voice';
 import type { Message } from 'discord.js';
+import type { Readable } from 'node:stream';
 import type { Song } from './song.js';
 
 export interface GuildQueue {
@@ -18,6 +19,7 @@ export interface GuildQueue {
     progressInterval?: ReturnType<typeof setInterval>;
     repeatMode: 'off' | 'one' | 'all';
     repeatCount: number;
+    activeStream?: Readable;
     mixContext?: {
         songs: Song[];
         index: number;

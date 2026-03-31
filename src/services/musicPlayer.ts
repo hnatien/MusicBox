@@ -20,6 +20,8 @@ import type { MusicClient } from '../core/client.js';
 import type { Song } from '../models/song.js';
 import { database } from './database.js';
 
+const playLocks = new Map<string, Promise<void>>();
+
 export function joinChannel(channel: VoiceBasedChannel): VoiceConnection {
     const connection = joinVoiceChannel({
         channelId: channel.id,
@@ -42,7 +44,21 @@ export function joinChannel(channel: VoiceBasedChannel): VoiceConnection {
     return connection;
 }
 
-export async function play(
+export function play(
+    guildId: string,
+    client: MusicClient,
+    existingMessage?: Message,
+    _skipCount = 0,
+): Promise<void> {
+    const prev = playLocks.get(guildId) ?? Promise.resolve();
+    const next = prev.then(() => _play(guildId, client, existingMessage, _skipCount));
+    const stored = next.catch(() => {});
+    stored.finally(() => { if (playLocks.get(guildId) === stored) playLocks.delete(guildId); });
+    playLocks.set(guildId, stored);
+    return next;
+}
+
+async function _play(
     guildId: string,
     client: MusicClient,
     existingMessage?: Message,
@@ -109,6 +125,9 @@ export async function play(
     try {
         const { stream } = await getAudioStream(song.url);
 
+        queue.activeStream?.destroy();
+        queue.activeStream = stream;
+
         const resource = createAudioResource(stream, {
             inputType: StreamType.Raw,
             inlineVolume: true,
@@ -126,16 +145,16 @@ export async function play(
 
         const onIdle = () => {
             queue.player.removeListener(AudioPlayerStatus.Idle, onIdle);
+            queue.player.removeListener('error', onError);
             stopProgressUpdate(guildId);
             play(guildId, client, undefined, 0).catch((error) => {
                 logger.error(`Auto-play next song failed for guild ${guildId}`, { error });
             });
         };
 
-        queue.player.on(AudioPlayerStatus.Idle, onIdle);
-
         const onError = (error: unknown) => {
             queue.player.removeListener('error', onError);
+            queue.player.removeListener(AudioPlayerStatus.Idle, onIdle);
             stopProgressUpdate(guildId);
 
             const message = error instanceof Error ? error.message : String(error);
@@ -150,6 +169,7 @@ export async function play(
             });
         };
 
+        queue.player.on(AudioPlayerStatus.Idle, onIdle);
         queue.player.on('error', onError);
 
         if (existingMessage || (reusedMessage && queue.nowPlayingMessage)) {

@@ -4,7 +4,7 @@ import { config } from '../config/environment.js';
 
 class RedisDatabase {
   private client;
-  private isConnecting = false;
+  private connectPromise: Promise<void> | null = null;
 
   constructor() {
     logger.info(`Initializing Redis connection to: ${config.REDIS.HOST}:${config.REDIS.PORT}`);
@@ -39,24 +39,23 @@ class RedisDatabase {
     });
 
     this.client.on('end', () => {
-      this.isConnecting = false;
+      this.connectPromise = null;
     });
   }
 
   async connect() {
     if (this.client.isOpen) return;
-    if (this.isConnecting) return;
+    if (this.connectPromise) return this.connectPromise;
 
-    this.isConnecting = true;
-    try {
-      await this.client.connect();
-    } catch (error: any) {
+    this.connectPromise = this.client.connect().then(() => {}).catch((error: any) => {
       if (error.message !== 'Socket already opened') {
         logger.error('Failed to connect to Redis', { message: error.message });
       }
-    } finally {
-      this.isConnecting = false;
-    }
+    }).finally(() => {
+      this.connectPromise = null;
+    });
+
+    return this.connectPromise;
   }
 
   async disconnect() {

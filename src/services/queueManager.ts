@@ -59,6 +59,8 @@ export function deleteQueue(guildId: string): void {
         clearInterval(queue.progressInterval);
     }
 
+    queue.activeStream?.destroy();
+
     queue.player.stop(true);
 
     try {
@@ -100,6 +102,9 @@ export function clearQueue(guildId: string): void {
         clearInterval(queue.progressInterval);
         queue.progressInterval = undefined;
     }
+
+    queue.activeStream?.destroy();
+    queue.activeStream = undefined;
 
     queue.songs = [];
     queue.currentSong = null;

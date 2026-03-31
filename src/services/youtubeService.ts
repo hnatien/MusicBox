@@ -53,6 +53,8 @@ function cleanCache(): void {
     }
 }
 
+setInterval(cleanCache, 15 * 60 * 1000).unref();
+
 function getAuthFlags(): string[] {
     const flags: string[] = [];
 
@@ -173,10 +175,18 @@ export async function getInfoByUrl(url: string, requestedBy: string): Promise<So
         const stdoutChunks: Buffer[] = [];
         let stderr = '';
 
+        const timeout = setTimeout(() => {
+            if (!proc.killed) {
+                proc.kill('SIGKILL');
+                reject(new Error(`yt-dlp metadata timed out after 30s`));
+            }
+        }, 30_000);
+
         proc.stdout!.on('data', (d: Buffer) => { stdoutChunks.push(d); });
         proc.stderr!.on('data', (d: Buffer) => { stderr += d.toString(); });
 
         proc.on('close', (code) => {
+            clearTimeout(timeout);
             if (code !== 0) {
                 reject(new Error(`yt-dlp metadata failed (code ${code}): ${stderr}`));
                 return;
@@ -189,6 +199,7 @@ export async function getInfoByUrl(url: string, requestedBy: string): Promise<So
         });
 
         proc.on('error', (err: Error) => {
+            clearTimeout(timeout);
             reject(new Error(`Failed to spawn yt-dlp (${ytdlpBinary}): ${err.message}. Ensure it is installed: pip install yt-dlp`));
         });
     });
@@ -206,7 +217,8 @@ export async function getInfoByUrl(url: string, requestedBy: string): Promise<So
     };
 
     if (metadataCache.size >= MAX_CACHE_SIZE) {
-        cleanCache();
+        const oldestKey = metadataCache.keys().next().value;
+        if (oldestKey !== undefined) metadataCache.delete(oldestKey);
     }
 
     const cacheEntry: CacheEntry = { song, streamUrl, expiresAt: Date.now() + CACHE_TTL_MS };
@@ -237,10 +249,18 @@ export async function getPlaylistInfo(url: string, requestedBy: string): Promise
         const stdoutChunks: Buffer[] = [];
         let stderr = '';
 
+        const timeout = setTimeout(() => {
+            if (!proc.killed) {
+                proc.kill('SIGKILL');
+                reject(new Error(`yt-dlp playlist metadata timed out after 45s`));
+            }
+        }, 45_000);
+
         proc.stdout!.on('data', (d: Buffer) => { stdoutChunks.push(d); });
         proc.stderr!.on('data', (d: Buffer) => { stderr += d.toString(); });
 
         proc.on('close', (code) => {
+            clearTimeout(timeout);
             if (code !== 0) {
                 reject(new Error(`yt-dlp playlist failed (code ${code}): ${stderr}`));
                 return;
@@ -253,6 +273,7 @@ export async function getPlaylistInfo(url: string, requestedBy: string): Promise
         });
 
         proc.on('error', (err: Error) => {
+            clearTimeout(timeout);
             reject(new Error(`Failed to spawn yt-dlp (${ytdlpBinary}): ${err.message}`));
         });
     });
@@ -312,6 +333,13 @@ function resolveAudioUrl(url: string): Promise<string> {
 
         const proc = spawn(ytdlpBinary, ytdlpArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
 
+        const timeout = setTimeout(() => {
+            if (!proc.killed) {
+                proc.kill('SIGKILL');
+                reject(new Error(`yt-dlp stream resolution timed out after 30s`));
+            }
+        }, 30_000);
+
         const stdoutChunks: Buffer[] = [];
         let stderr = '';
 
@@ -319,6 +347,7 @@ function resolveAudioUrl(url: string): Promise<string> {
         proc.stderr!.on('data', (d: Buffer) => { stderr += d.toString(); });
 
         proc.on('close', (code) => {
+            clearTimeout(timeout);
             const stdout = Buffer.concat(stdoutChunks).toString().trim();
             if (code !== 0 || !stdout) {
                 reject(new Error(`yt-dlp failed (code ${code}): ${stderr || 'no URL returned'}`));
@@ -328,6 +357,7 @@ function resolveAudioUrl(url: string): Promise<string> {
         });
 
         proc.on('error', (err: Error) => {
+            clearTimeout(timeout);
             reject(new Error(`Failed to spawn yt-dlp (${ytdlpBinary}): ${err.message}. Ensure it is installed: pip install yt-dlp`));
         });
     });

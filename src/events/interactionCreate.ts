@@ -1,4 +1,4 @@
-import { Collection, type GuildMember } from 'discord.js';
+import { Collection, GuildMember } from 'discord.js';
 import type { BotEvent } from './index.js';
 import type { MusicClient } from '../core/client.js';
 import { logger } from '../core/logger.js';
@@ -15,8 +15,8 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
 
         if (interaction.isButton()) {
             if (!interaction.guildId) return;
-            const member = interaction.member as GuildMember;
-            if (!member.voice.channel) {
+            const member = interaction.member;
+            if (!(member instanceof GuildMember) || !member.voice.channel) {
                 await interaction.reply({ embeds: [createErrorEmbed('You must be in a voice channel to use player controls.')], ephemeral: true });
                 return;
             }
