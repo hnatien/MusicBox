@@ -64,9 +64,10 @@ export const APP_EMOJIS = {
     // Mappings for existing logic
     NOWPLAYING: '1488384501930397786',
     PAUSE: '1488384500080840704',
-    SKIP: '1488377182622322868',
+    SKIP: '1488386061578277006',
     RESUME: '1488384489309736990',
-    PING: '1488384482598977637', // Mapping to EQUALIZER
+    PING: '1488384482598977637',
+    MUSIC_NOTES: '1488385827917533216',
 } as const;
 
 export const formatAppEmoji = (name: keyof typeof APP_EMOJIS) => `<:${name.toLowerCase()}:${APP_EMOJIS[name]}>`;
