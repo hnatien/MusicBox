@@ -108,12 +108,12 @@ export function createSearchEmbed(query: string, songs: Song[]): EmbedBuilder {
 }
 
 export function createQueueEmbed(
-    songs: Song[],
+    allSongs: Song[],
     currentSong: Song | null,
-    nextSongs: Song[],
+    paginatedSongs: Song[],
     page: number,
     totalPages: number,
-    totalSongs: number,
+    totalSongsCount: number,
 ): EmbedBuilder {
     const embed = new EmbedBuilder()
         .setColor(0x2B2D31)
@@ -127,23 +127,23 @@ export function createQueueEmbed(
         description += `${formatAppEmoji('HEART')} *Shared by <@${currentSong.requestedBy}>*\n\n`;
     }
 
-    if (nextSongs.length > 0) {
+    if (paginatedSongs.length > 0) {
         description += `**UP NEXT**\n`;
         const offset = (page - 1) * QUEUE_PAGE_SIZE;
-        description += nextSongs
+        description += paginatedSongs
             .map(
                 (song, i) =>
                     `\`${offset + i + 1}\` [${song.title}](${song.url}) · \`${song.durationFormatted}\` <@${song.requestedBy}>`,
             )
             .join('\n');
-    } else {
+    } else if (allSongs.length === 0) {
         description += '*No more songs in queue*';
     }
 
     embed.setDescription(description);
 
-    if (totalSongs > 0) {
-        embed.setFooter({ text: `${totalSongs} ${totalSongs === 1 ? 'song' : 'songs'} in queue · Page ${page}/${totalPages}` });
+    if (totalSongsCount > 0) {
+        embed.setFooter({ text: `${totalSongsCount} ${totalSongsCount === 1 ? 'song' : 'songs'} in queue · Page ${page}/${totalPages}` });
     }
 
     return embed;

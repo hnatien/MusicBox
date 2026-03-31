@@ -43,10 +43,17 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
                         await interaction.deferUpdate();
                         break;
                     case 'player-queue-view':
-                        const upNext = queue.songs.slice(0, QUEUE_PAGE_SIZE);
                         const totalSongsCount = queue.songs.length;
                         const tPages = Math.max(1, Math.ceil(totalSongsCount / QUEUE_PAGE_SIZE));
-                        const qEmbed = createQueueEmbed(queue.songs, queue.currentSong, upNext, 1, tPages, totalSongsCount);
+                        const upNext = queue.songs.slice(0, QUEUE_PAGE_SIZE);
+                        const qEmbed = createQueueEmbed(
+                            queue.songs,
+                            queue.currentSong,
+                            upNext,
+                            1,
+                            tPages,
+                            totalSongsCount
+                        );
                         await interaction.reply({ embeds: [qEmbed], ephemeral: true });
                         break;
                     case 'player-stop':
