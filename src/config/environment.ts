@@ -38,15 +38,10 @@ function validateEnv(): EnvironmentConfig {
     const user = getEnv('REDISUSER') || 'default';
     const pass = getEnv('REDISPASSWORD') || getEnv('REDIS_PASSWORD') || '';
     
-    // Construct URL if not provided, preferring the user's template if possible
-    let url = getEnv('REDIS_URL');
-    if (!url) {
-        if (pass) {
-            url = `redis://${user}:${pass}@${host}:${port}`;
-        } else {
-            url = `redis://${host}:${port}`;
-        }
-    }
+    // Construct URL: Luôn ưu tiên xây dựng lại URL từ các thành phần để tránh lỗi nội suy ${} trong .env
+    const url = pass 
+        ? `redis://${user}:${pass}@${host}:${port}`
+        : `redis://${host}:${port}`;
 
     return {
         DISCORD_TOKEN: getEnv('DISCORD_TOKEN')!,
@@ -61,7 +56,7 @@ function validateEnv(): EnvironmentConfig {
             PORT: port,
             USER: user,
             PASS: pass,
-            URL: url
+            URL: url // URL đã được build chuẩn ở trên
         }
     };
 }
