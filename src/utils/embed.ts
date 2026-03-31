@@ -1,4 +1,11 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
+import {
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    EmbedBuilder,
+    StringSelectMenuBuilder,
+    StringSelectMenuOptionBuilder
+} from 'discord.js';
 import { COLORS, EMOJIS, PROGRESS_BAR_LENGTH, QUEUE_PAGE_SIZE, APP_EMOJIS, formatAppEmoji, getEmojiUrl } from './constants.js';
 import { createProgressBar, formatDuration, formatRemainingDuration } from './formatDuration.js';
 import type { Song } from '../models/song.js';
@@ -59,7 +66,7 @@ export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaus
 export function createSongAddedEmbed(song: Song, position: number): EmbedBuilder {
     return new EmbedBuilder()
         .setColor(COLORS.SUCCESS)
-        .setAuthor({ name: 'ADDED TO QUEUE' })
+        .setAuthor({ name: 'ADDED TO QUEUE', iconURL: getEmojiUrl(APP_EMOJIS.CHECK_CIRCLE) })
         .setTitle(song.title)
         .setURL(song.url)
         .setDescription(
@@ -72,7 +79,7 @@ export function createSongAddedEmbed(song: Song, position: number): EmbedBuilder
 export function createPlaylistAddedEmbed(title: string, count: number): EmbedBuilder {
     return new EmbedBuilder()
         .setColor(COLORS.SUCCESS)
-        .setAuthor({ name: 'PLAYLIST ADDED' })
+        .setAuthor({ name: 'PLAYLIST ADDED', iconURL: getEmojiUrl(APP_EMOJIS.PLAYLIST) })
         .setTitle(title)
         .setDescription(`\`${count}\` items queued`);
 }
@@ -114,7 +121,7 @@ export function createQueueEmbed(
     page: number,
     totalPages: number,
     totalSongsCount: number,
-): EmbedBuilder {
+): { embeds: EmbedBuilder[]; components: ActionRowBuilder<any>[] } {
     const embed = new EmbedBuilder()
         .setColor(0x2B2D31)
         .setAuthor({ name: 'MUSIC QUEUE', iconURL: getEmojiUrl(APP_EMOJIS.QUEUE) });
@@ -146,20 +153,59 @@ export function createQueueEmbed(
         embed.setFooter({ text: `${totalSongsCount} ${totalSongsCount === 1 ? 'song' : 'songs'} in queue · Page ${page}/${totalPages}` });
     }
 
-    return embed;
+    const allSongsRow = new ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>();
+    
+    if (allSongs.length > 0) {
+        allSongsRow.addComponents(
+            new ButtonBuilder()
+                .setCustomId('queue-clear')
+                .setLabel('Clear Queue')
+                .setEmoji(APP_EMOJIS.TRASH)
+                .setStyle(ButtonStyle.Danger),
+            new ButtonBuilder()
+                .setCustomId('queue-remove-last')
+                .setLabel('Remove Last')
+                .setEmoji(APP_EMOJIS.MINUS_SQUARE)
+                .setStyle(ButtonStyle.Secondary)
+        );
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId('queue-remove-song')
+            .setPlaceholder('Select a song to remove')
+            .addOptions(
+                allSongs.slice(0, 25).map((song, index) => 
+                    new StringSelectMenuOptionBuilder()
+                        .setLabel(`${index + 1}. ${song.title.slice(0, 90)}`)
+                        .setDescription(`Duration: ${song.durationFormatted} · Added by ${song.requestedBy}`)
+                        .setValue(index.toString())
+                )
+            );
+
+        const selectRow = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+
+        return {
+            embeds: [embed],
+            components: [allSongsRow, selectRow]
+        };
+    }
+
+    return {
+        embeds: [embed],
+        components: allSongsRow.components.length > 0 ? [allSongsRow] : []
+    };
 }
 
 export function createErrorEmbed(message: string): EmbedBuilder {
     return new EmbedBuilder()
         .setColor(COLORS.ERROR)
-        .setAuthor({ name: 'System Error' })
+        .setAuthor({ name: 'System Error', iconURL: getEmojiUrl(APP_EMOJIS.ERROR_CIRCLE) })
         .setDescription(message);
 }
 
 export function createSuccessEmbed(message: string): EmbedBuilder {
     return new EmbedBuilder()
         .setColor(COLORS.SUCCESS)
-        .setAuthor({ name: 'Success' })
+        .setAuthor({ name: 'Success', iconURL: getEmojiUrl(APP_EMOJIS.CHECK_CIRCLE) })
         .setDescription(message);
 }
 

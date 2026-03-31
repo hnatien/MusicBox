@@ -46,7 +46,7 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
                         const totalSongsCount = queue.songs.length;
                         const tPages = Math.max(1, Math.ceil(totalSongsCount / QUEUE_PAGE_SIZE));
                         const upNext = queue.songs.slice(0, QUEUE_PAGE_SIZE);
-                        const qEmbed = createQueueEmbed(
+                        const result = createQueueEmbed(
                             queue.songs,
                             queue.currentSong,
                             upNext,
@@ -54,7 +54,36 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
                             tPages,
                             totalSongsCount
                         );
-                        await interaction.reply({ embeds: [qEmbed], ephemeral: true });
+                        await interaction.reply({ embeds: result.embeds, components: result.components });
+                        break;
+                    case 'queue-clear':
+                        queue.songs = [];
+                        await interaction.update({
+                            embeds: [createQueueEmbed([], queue.currentSong, [], 1, 1, 0).embeds[0]],
+                            components: []
+                        });
+                        break;
+                    case 'queue-remove-last':
+                        if (queue.songs.length > 0) {
+                            queue.songs.pop();
+                            const newTotal = queue.songs.length;
+                            const newTPages = Math.max(1, Math.ceil(newTotal / QUEUE_PAGE_SIZE));
+                            const newUpNext = queue.songs.slice(0, QUEUE_PAGE_SIZE);
+                            const updatedResult = createQueueEmbed(
+                                queue.songs,
+                                queue.currentSong,
+                                newUpNext,
+                                1,
+                                newTPages,
+                                newTotal
+                            );
+                            await interaction.update({
+                                embeds: updatedResult.embeds,
+                                components: updatedResult.components
+                            });
+                        } else {
+                            await interaction.reply({ content: 'Queue is already empty.', ephemeral: true });
+                        }
                         break;
                     case 'player-stop':
                         const stopQueue = queueManager.getQueue(interaction.guildId);
@@ -82,6 +111,35 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
                 }
             } catch (error) {
                 logger.error(`Button interaction failed: ${interaction.customId}`, { error });
+            }
+            return;
+        }
+
+        if (interaction.isStringSelectMenu()) {
+            const queue = queueManager.getQueue(interaction.guildId!);
+            if (!queue) return;
+
+            if (interaction.customId === 'queue-remove-song') {
+                const songIndex = parseInt(interaction.values[0]);
+                if (!isNaN(songIndex) && queue.songs[songIndex]) {
+                    const removedSong = queue.songs.splice(songIndex, 1)[0];
+                    const totalSongsCount = queue.songs.length;
+                    const tPages = Math.max(1, Math.ceil(totalSongsCount / QUEUE_PAGE_SIZE));
+                    const upNext = queue.songs.slice(0, QUEUE_PAGE_SIZE);
+                    const result = createQueueEmbed(
+                        queue.songs,
+                        queue.currentSong,
+                        upNext,
+                        1,
+                        tPages,
+                        totalSongsCount
+                    );
+                    await interaction.update({
+                        content: `✅ Removed **${removedSong.title}** (requested by <@${removedSong.requestedBy}>) from queue.`,
+                        embeds: result.embeds,
+                        components: result.components
+                    });
+                }
             }
             return;
         }

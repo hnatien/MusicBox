@@ -31,7 +31,7 @@ const queueCommand: Command = {
         const startIndex = (page - 1) * QUEUE_PAGE_SIZE;
         const pageSongs = queue.songs.slice(startIndex, startIndex + QUEUE_PAGE_SIZE);
 
-        const embed = createQueueEmbed(
+        const result = createQueueEmbed(
             queue.songs,
             queue.currentSong,
             pageSongs,
@@ -40,7 +40,10 @@ const queueCommand: Command = {
             queue.songs.length
         );
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.reply({
+            embeds: result.embeds,
+            components: result.components
+        });
     },
 };
 
