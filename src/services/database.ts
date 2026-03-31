@@ -3,37 +3,68 @@ import { logger } from '../core/logger.js';
 
 class RedisDatabase {
   private client;
-  private isConnected = false;
+  private isConnecting = false;
 
   constructor() {
-    this.client = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379'
+    // Xây dựng URL Redis một cách an toàn
+    let redisUrl = process.env.REDIS_URL;
+
+    // Nếu REDIS_URL bị rỗng hoặc có định dạng lỗi từ Railway (ví dụ: redis://:@:)
+    if (!redisUrl || redisUrl === 'redis://:@:') {
+      const host = process.env.REDISHOST || 'localhost';
+      const port = process.env.REDISPORT || '6379';
+      const user = process.env.REDISUSER || '';
+      const password = process.env.REDISPASSWORD || '';
+      
+      if (password) {
+        redisUrl = `redis://${user}:${password}@${host}:${port}`;
+      } else {
+        redisUrl = `redis://${host}:${port}`;
+      }
+    }
+
+    this.client = createClient({ url: redisUrl });
+
+    this.client.on('error', (err) => {
+      // Chỉ log lỗi nếu không phải là lỗi kết nối bình thường khi server chưa sẵn sàng
+      if (err.code !== 'ECONNREFUSED') {
+        logger.error('Redis Client Error', err);
+      }
     });
 
-    this.client.on('error', (err) => logger.error('Redis Client Error', err));
     this.client.on('connect', () => {
-      this.isConnected = true;
       logger.info('Connected to Redis server');
+    });
+
+    this.client.on('end', () => {
+      this.isConnecting = false;
     });
   }
 
   async connect() {
-    if (!this.isConnected) {
-      try {
-        await this.client.connect();
-      } catch (error) {
-        logger.error('Failed to connect to Redis', { error });
+    if (this.client.isOpen) return;
+    if (this.isConnecting) return;
+
+    this.isConnecting = true;
+    try {
+      await this.client.connect();
+    } catch (error: any) {
+      if (error.message !== 'Socket already opened') {
+        logger.error('Failed to connect to Redis', { message: error.message });
       }
+    } finally {
+      this.isConnecting = false;
     }
   }
 
   async getSongsPlayed(): Promise<number> {
     try {
       await this.connect();
+      if (!this.client.isOpen) return 0;
+      
       const count = await this.client.get('totalSongsPlayed');
       return count ? parseInt(count, 10) : 0;
     } catch (error) {
-      logger.error('Failed to get songs played from Redis', { error });
       return 0;
     }
   }
@@ -41,9 +72,11 @@ class RedisDatabase {
   async incrementSongsPlayed(): Promise<void> {
     try {
       await this.connect();
+      if (!this.client.isOpen) return;
+
       await this.client.incr('totalSongsPlayed');
     } catch (error) {
-      logger.error('Failed to increment songs played in Redis', { error });
+      // Bỏ qua lỗi increment nếu Redis chưa sẵn sàng
     }
   }
 }
