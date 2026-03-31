@@ -17,6 +17,7 @@ import { config } from '../config/environment.js';
 import { createNowPlayingEmbed, createErrorEmbed } from '../utils/embed.js';
 import { MAX_RECONNECT_ATTEMPTS } from '../utils/constants.js';
 import type { MusicClient } from '../core/client.js';
+import { database } from './database.js';
 
 export function joinChannel(channel: VoiceBasedChannel): VoiceConnection {
     const connection = joinVoiceChannel({
@@ -94,6 +95,7 @@ export async function play(
         queue.playStartTime = Date.now();
 
         queue.player.play(resource);
+        database.incrementSongsPlayed();
 
         const onIdle = () => {
             queue.player.removeListener(AudioPlayerStatus.Idle, onIdle);

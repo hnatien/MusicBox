@@ -12,7 +12,7 @@ async function main(): Promise<void> {
     await loadEvents(client);
 
     // Chạy Web Server song song với Discord Bot
-    startWebServer();
+    startWebServer(client);
 
     await client.login(config.DISCORD_TOKEN);
 }

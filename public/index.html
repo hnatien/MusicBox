@@ -856,15 +856,15 @@ footer {
 
   <div class="hero-stats">
     <div class="stat-item">
-      <div class="stat-num">50<span>k+</span></div>
+      <div class="stat-num" id="stat-servers">50<span>k+</span></div>
       <div class="stat-label">Servers</div>
     </div>
     <div class="stat-item">
-      <div class="stat-num">2<span>M+</span></div>
+      <div class="stat-num" id="stat-songs">2<span>M+</span></div>
       <div class="stat-label">Songs played</div>
     </div>
     <div class="stat-item">
-      <div class="stat-num">99<span>%</span></div>
+      <div class="stat-num" id="stat-uptime">99<span>%</span></div>
       <div class="stat-label">Uptime</div>
     </div>
   </div>
@@ -1128,6 +1128,22 @@ document.getElementById('playBtn').addEventListener('click', () => {
   playing = !playing;
   document.getElementById('playBtn').textContent = playing ? '⏸' : '▶';
 });
+
+// Real stats API
+async function updateStats() {
+  try {
+    const res = await fetch("/api/stats");
+    const data = await res.json();
+    const srv = document.getElementById("stat-servers");
+    const sng = document.getElementById("stat-songs");
+    const upt = document.getElementById("stat-uptime");
+    if (srv) srv.innerHTML = data.servers + "<span>+</span>";
+    if (sng) sng.innerHTML = data.songsPlayed + "<span>+</span>";
+    if (upt) upt.innerHTML = data.uptime;
+  } catch(e) {}
+}
+updateStats();
+setInterval(updateStats, 15000);
 </script>
 </body>
 </html>
