@@ -1,5 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
-import { COLORS, EMOJIS, PROGRESS_BAR_LENGTH, QUEUE_PAGE_SIZE } from './constants.js';
+import { COLORS, EMOJIS, PROGRESS_BAR_LENGTH, QUEUE_PAGE_SIZE, APP_EMOJIS, formatAppEmoji, getEmojiUrl } from './constants.js';
 import { createProgressBar, formatDuration, formatRemainingDuration } from './formatDuration.js';
 import type { Song } from '../models/song.js';
 
@@ -9,29 +9,29 @@ export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaus
     const total = song.durationFormatted;
 
     const embed = new EmbedBuilder()
-        .setColor(0x2B2D31) // Discord dark background roughly
-        .setAuthor({ name: song.channelName.toUpperCase() })
+        .setColor(0x2B2D31)
+        .setAuthor({ name: song.channelName.toUpperCase(), iconURL: getEmojiUrl(APP_EMOJIS.NOWPLAYING) })
         .setTitle(song.title)
         .setURL(song.url)
         .setImage(song.thumbnail || null)
         .setDescription(
             `\n**${elapsed}** ${progressBar} ${total}\n\n` +
-            `*Shared by <@${song.requestedBy}>*`
+            `${formatAppEmoji('HEART')} *Shared by <@${song.requestedBy}>*`
         );
 
     const playPauseButton = new ButtonBuilder()
         .setCustomId('player-pause-resume')
-        .setEmoji(isPaused ? '▶️' : '⏸️')
+        .setEmoji({ id: isPaused ? APP_EMOJIS.PLAY : APP_EMOJIS.PAUSE })
         .setStyle(ButtonStyle.Primary);
 
     const skipButton = new ButtonBuilder()
         .setCustomId('player-skip')
-        .setEmoji('⏭️')
+        .setEmoji({ id: APP_EMOJIS.SKIP })
         .setStyle(ButtonStyle.Primary);
 
     const stopButton = new ButtonBuilder()
         .setCustomId('player-stop')
-        .setEmoji('⏹️')
+        .setEmoji({ id: APP_EMOJIS.STOP })
         .setStyle(ButtonStyle.Primary);
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(playPauseButton, skipButton, stopButton);
@@ -66,7 +66,7 @@ export function createMixStartedEmbed(title: string, firstSong: Song, totalCount
         .setAuthor({ name: 'MIX LOADED' })
         .setTitle(title)
         .setDescription(
-            `􀑬 \`${totalCount}\` items · Auto-queue enabled\n\n` +
+            `\`${totalCount}\` items · Auto-queue enabled\n\n` +
             `Now playing **[${firstSong.title}](${firstSong.url})**\n` +
             `${firstSong.channelName} · \`${firstSong.durationFormatted}\``,
         )
@@ -87,7 +87,7 @@ export function createSearchEmbed(query: string, songs: Song[]): EmbedBuilder {
         .setAuthor({ name: 'SEARCH RESULTS' })
         .setTitle(`"${query}"`)
         .setDescription(description)
-        .setFooter({ text: '􀊫 Select a song using the menu below' });
+        .setFooter({ text: 'Select a song using the menu below' });
 }
 
 export function createQueueEmbed(
@@ -123,7 +123,7 @@ export function createQueueEmbed(
     }
 
     if (totalSongs && totalSongs > 0) {
-        embed.setFooter({ text: `􀑬 ${totalSongs} songs in queue · Page ${page}/${totalPages}` });
+        embed.setFooter({ text: `${totalSongs} songs in queue · Page ${page}/${totalPages}` });
     }
 
     return embed;
