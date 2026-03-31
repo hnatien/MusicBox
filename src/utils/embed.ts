@@ -10,8 +10,8 @@ export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaus
 
     const repeatLabels = {
         off: '',
-        one: repeatCount > 0 ? `\n\n*Repeat: One (${repeatCount} times)*` : '\n\n*Repeat: One*',
-        all: repeatCount > 0 ? `\n\n*Repeat: All (${repeatCount} times)*` : '\n\n*Repeat: All*'
+        one: repeatCount > 0 ? `\n\n*Repeat: One (${repeatCount} ${repeatCount === 1 ? 'time' : 'times'})*` : '\n\n*Repeat: One*',
+        all: repeatCount > 0 ? `\n\n*Repeat: All (${repeatCount} ${repeatCount === 1 ? 'time' : 'times'})*` : '\n\n*Repeat: All*'
     };
 
     const embed = new EmbedBuilder()
@@ -153,4 +153,11 @@ export function createSuccessEmbed(message: string): EmbedBuilder {
         .setColor(COLORS.SUCCESS)
         .setAuthor({ name: 'Success' })
         .setDescription(message);
+}
+
+export function createStoppedEmbed(): EmbedBuilder {
+    return new EmbedBuilder()
+        .setColor(0x2B2D31)
+        .setAuthor({ name: 'MUSICBOX STOPPED', iconURL: getEmojiUrl(APP_EMOJIS.STOP) })
+        .setDescription('*The playback has been stopped and the queue cleared.*');
 }

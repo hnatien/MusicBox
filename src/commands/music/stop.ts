@@ -2,7 +2,7 @@ import { GuildMember, SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../models/command.js';
 import * as musicPlayer from '../../services/musicPlayer.js';
 import * as queueManager from '../../services/queueManager.js';
-import { createSuccessEmbed, createErrorEmbed } from '../../utils/embed.js';
+import { createSuccessEmbed, createErrorEmbed, createStoppedEmbed } from '../../utils/embed.js';
 import { EMOJIS } from '../../utils/constants.js';
 
 const stopCommand: Command = {
@@ -30,6 +30,10 @@ const stopCommand: Command = {
                 ephemeral: true,
             });
             return;
+        }
+
+        if (queue.nowPlayingMessage) {
+            await queue.nowPlayingMessage.edit({ embeds: [createStoppedEmbed()], components: [] }).catch(() => { });
         }
 
         musicPlayer.stop(interaction.guildId!);
