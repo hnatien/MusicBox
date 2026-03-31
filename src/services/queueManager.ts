@@ -49,7 +49,9 @@ export function createQueue(
 export function deleteQueue(guildId: string): void {
     const queue = queues.get(guildId);
 
-    if (!queue) return;
+    if (!queue) {
+        return;
+    }
 
     if (queue.inactivityTimer) {
         clearTimeout(queue.inactivityTimer);
@@ -74,7 +76,9 @@ export function deleteQueue(guildId: string): void {
 
 export function addSong(guildId: string, song: Song): number {
     const queue = queues.get(guildId);
-    if (!queue) throw new Error(`No queue exists for guild ${guildId}`);
+    if (!queue) {
+        throw new Error(`No queue exists for guild ${guildId}`);
+    }
 
     if (queue.songs.length >= config.MAX_QUEUE_SIZE) {
         throw new Error(`Queue is full (max ${config.MAX_QUEUE_SIZE} songs)`);
@@ -82,21 +86,27 @@ export function addSong(guildId: string, song: Song): number {
 
     queue.songs.push(song);
 
-    if (!queue.currentSong && queue.songs.length === 1) return 0;
+    if (!queue.currentSong && queue.songs.length === 1) {
+        return 0;
+    }
 
     return queue.songs.length;
 }
 
 export function getNextSong(guildId: string): Song | undefined {
     const queue = queues.get(guildId);
-    if (!queue) return undefined;
+    if (!queue) {
+        return undefined;
+    }
 
     return queue.songs.shift();
 }
 
 export function clearQueue(guildId: string): void {
     const queue = queues.get(guildId);
-    if (!queue) return;
+    if (!queue) {
+        return;
+    }
 
     if (queue.progressInterval) {
         clearInterval(queue.progressInterval);

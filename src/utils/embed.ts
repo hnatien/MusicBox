@@ -15,22 +15,23 @@ export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaus
     const elapsed = formatDuration(elapsedSeconds);
     const total = song.durationFormatted;
 
-    const repeatLabels = {
-        off: '',
-        one: repeatCount > 0 ? `\n\n*Repeat: One (${repeatCount} ${repeatCount === 1 ? 'time' : 'times'})*` : '\n\n*Repeat: One*',
-        all: repeatCount > 0 ? `\n\n*Repeat: All (${repeatCount} ${repeatCount === 1 ? 'time' : 'times'})*` : '\n\n*Repeat: All*'
-    };
+    let repeatLabel = '';
+    if (repeatMode === 'one' || repeatMode === 'all') {
+        const label = repeatMode === 'one' ? 'One' : 'All';
+        const times = repeatCount === 1 ? 'time' : 'times';
+        repeatLabel = repeatCount > 0 ? `\n\n*Repeat: ${label} (${repeatCount} ${times})*` : `\n\n*Repeat: ${label}*`;
+    }
 
     const embed = new EmbedBuilder()
         .setColor(0x2B2D31)
-        .setAuthor({ name: song.channelName.toUpperCase(), iconURL: getEmojiUrl(APP_EMOJIS.MUSIC_NOTES) })
+        .setAuthor({ name: song.channelName.toUpperCase(), iconURL: getEmojiUrl(APP_EMOJIS.WAVES) })
         .setTitle(song.title)
         .setURL(song.url)
         .setImage(song.thumbnail || null)
         .setDescription(
             `\n**${elapsed}** ${progressBar} ${total}\n\n` +
             `${formatAppEmoji('HEART')} *Shared by <@${song.requestedBy}>*` +
-            `${repeatLabels[repeatMode]}`
+            `${repeatLabel}`
         );
 
     const playPauseButton = new ButtonBuilder()
@@ -106,12 +107,14 @@ export function createSearchEmbed(query: string, songs: Song[]): EmbedBuilder {
         )
         .join('\n\n');
 
-    return new EmbedBuilder()
-        .setColor(COLORS.PRIMARY)
-        .setAuthor({ name: 'SEARCH RESULTS' })
+    const embed = new EmbedBuilder()
+        .setColor(0x2B2D31)
+        .setAuthor({ name: 'SEARCH RESULTS', iconURL: getEmojiUrl(APP_EMOJIS.SEARCH) })
         .setTitle(`"${query}"`)
         .setDescription(description)
         .setFooter({ text: 'Select a song using the menu below' });
+
+    return embed;
 }
 
 export function createQueueEmbed(
@@ -160,12 +163,12 @@ export function createQueueEmbed(
             new ButtonBuilder()
                 .setCustomId('queue-clear')
                 .setLabel('Clear Queue')
-                .setEmoji(APP_EMOJIS.TRASH)
+                .setEmoji({ id: APP_EMOJIS.TRASH })
                 .setStyle(ButtonStyle.Danger),
             new ButtonBuilder()
                 .setCustomId('queue-remove-last')
                 .setLabel('Remove Last')
-                .setEmoji(APP_EMOJIS.MINUS_SQUARE)
+                .setEmoji({ id: APP_EMOJIS.MINUS_SQUARE })
                 .setStyle(ButtonStyle.Secondary)
         );
 
@@ -178,6 +181,7 @@ export function createQueueEmbed(
                         .setLabel(`${index + 1}. ${song.title.slice(0, 90)}`)
                         .setDescription(`Duration: ${song.durationFormatted} · Added by ${song.requestedBy}`)
                         .setValue(index.toString())
+                        .setEmoji({ id: APP_EMOJIS.REMOVE_SONG })
                 )
             );
 

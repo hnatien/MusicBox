@@ -1,7 +1,8 @@
-import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActivityType } from 'discord.js';
 import { Command } from '../../models/command.js';
 import { config } from '../../config/environment.js';
 import { COLORS, formatAppEmoji } from '../../utils/constants.js';
+import { createErrorEmbed } from '../../utils/embed.js';
 
 const maintenanceCommand: Command = {
     data: new SlashCommandBuilder()
@@ -13,31 +14,35 @@ const maintenanceCommand: Command = {
                 .setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
-    async execute(interaction, client) {
+    async execute(interaction, client): Promise<void> {
         if (!config.ADMIN_IDS.includes(interaction.user.id)) {
-            return interaction.reply({ 
-                content: `${formatAppEmoji('ERROR_CIRCLE')} Only bot admins can use this command.`, 
-                ephemeral: true 
+            await interaction.reply({
+                embeds: [createErrorEmbed('Only bot admins can use this command.')],
+                ephemeral: true
             });
+            return;
         }
 
         const status = interaction.options.getBoolean('status', true);
         client.isLocked = status;
 
+        const emojiKey = status ? 'ERROR_CIRCLE' : 'CHECK_CIRCLE';
+        const color = status ? COLORS.WARNING : COLORS.SUCCESS;
+        const statusValue = status ? '🛑 Currently Down (Only admins can use commands)' : '✅ Active (All users can use commands)';
+
         const embed = new EmbedBuilder()
-            .setColor(status ? COLORS.WARNING : COLORS.SUCCESS)
-            .setTitle(`${formatAppEmoji(status ? 'ERROR_CIRCLE' : 'CHECK_CIRCLE')} Maintenance Mode`)
+            .setColor(color)
+            .setTitle(`${formatAppEmoji(emojiKey)} Maintenance Mode`)
             .setDescription(`Maintenance mode has been **${status ? 'ENABLED' : 'DISABLED'}**.`)
-            .addFields({ 
-                name: 'Status', 
-                value: status ? '🛑 Currently Down (Only admins can use commands)' : '✅ Active (All users can use commands)' 
+            .addFields({
+                name: 'Status',
+                value: statusValue
             })
             .setTimestamp();
 
-        // Update presence to reflect status
         if (status) {
             client.user?.setPresence({
-                activities: [{ name: '⚠️ Maintenance Mode', type: 3 }], // Watching
+                activities: [{ name: '⚠️ Maintenance Mode', type: ActivityType.Watching }],
                 status: 'dnd'
             });
         } else {

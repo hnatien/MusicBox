@@ -1,11 +1,11 @@
-import { Collection, GuildMember, EmbedBuilder } from 'discord.js';
+import { Collection, GuildMember } from 'discord.js';
 import type { BotEvent } from './index.js';
 import type { MusicClient } from '../core/client.js';
 import { logger } from '../core/logger.js';
 import * as musicPlayer from '../services/musicPlayer.js';
 import * as queueManager from '../services/queueManager.js';
 import { createErrorEmbed, createNowPlayingEmbed, createStoppedEmbed, createQueueEmbed } from '../utils/embed.js';
-import { QUEUE_PAGE_SIZE, formatAppEmoji, COLORS } from '../utils/constants.js';
+import { QUEUE_PAGE_SIZE, formatAppEmoji, getEmojiUrl, APP_EMOJIS } from '../utils/constants.js';
 import { config } from '../config/environment.js';
 
 const cooldowns = new Collection<string, Collection<string, number>>();
@@ -15,22 +15,24 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
     execute: async (client, interaction) => {
         const musicClient = client as MusicClient;
 
-        // Maintenance Mode Check
         if (musicClient.isLocked && !config.ADMIN_IDS.includes(interaction.user.id)) {
-            const maintenanceEmbed = new EmbedBuilder()
-                .setColor(COLORS.WARNING)
-                .setTitle(`${formatAppEmoji('ERROR_CIRCLE')} System Maintenance`)
-                .setDescription('The bot is currently down for maintenance. Please try again later.')
-                .setTimestamp();
-
             if (interaction.isRepliable()) {
-                await interaction.reply({ embeds: [maintenanceEmbed], ephemeral: true });
+                await interaction.reply({
+                    embeds: [
+                        createErrorEmbed('The bot is currently down for maintenance. Please try again later.')
+                            .setAuthor({ name: 'MAINTENANCE MODE', iconURL: getEmojiUrl(APP_EMOJIS.ERROR_CIRCLE) })
+                    ],
+                    ephemeral: true
+                });
             }
             return;
         }
 
         if (interaction.isButton()) {
-            if (!interaction.guildId) return;
+            if (!interaction.guildId) {
+                return;
+            }
+
             const member = interaction.member;
             if (!(member instanceof GuildMember) || !member.voice.channel) {
                 await interaction.reply({ embeds: [createErrorEmbed('You must be in a voice channel to use player controls.')], ephemeral: true });
@@ -45,7 +47,7 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
 
             try {
                 switch (interaction.customId) {
-                    case 'player-pause-resume':
+                    case 'player-pause-resume': {
                         if (queue.isPaused) {
                             musicPlayer.resume(interaction.guildId);
                         } else {
@@ -53,64 +55,69 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
                         }
                         await interaction.deferUpdate();
                         break;
-                    case 'player-skip':
+                    }
+                    case 'player-skip': {
                         musicPlayer.skip(interaction.guildId);
                         await interaction.deferUpdate();
                         break;
-                    case 'player-queue-view':
+                    }
+                    case 'player-queue-view': {
                         const totalSongsCount = queue.songs.length;
                         const tPages = Math.max(1, Math.ceil(totalSongsCount / QUEUE_PAGE_SIZE));
-                        const upNext = queue.songs.slice(0, QUEUE_PAGE_SIZE);
                         const result = createQueueEmbed(
                             queue.songs,
                             queue.currentSong,
-                            upNext,
+                            queue.songs.slice(0, QUEUE_PAGE_SIZE),
                             1,
                             tPages,
                             totalSongsCount
                         );
                         await interaction.reply({ embeds: result.embeds, components: result.components });
                         break;
-                    case 'queue-clear':
+                    }
+                    case 'queue-clear': {
                         queue.songs = [];
+                        const result = createQueueEmbed([], queue.currentSong, [], 1, 1, 0);
                         await interaction.update({
                             content: `${formatAppEmoji('CHECK_CIRCLE')} Cleared queue.`,
-                            embeds: [createQueueEmbed([], queue.currentSong, [], 1, 1, 0).embeds[0]],
+                            embeds: result.embeds,
                             components: []
                         });
                         break;
-                    case 'queue-remove-last':
+                    }
+                    case 'queue-remove-last': {
                         if (queue.songs.length > 0) {
                             const removed = queue.songs.pop();
-                            const newTotal = queue.songs.length;
-                            const newTPages = Math.max(1, Math.ceil(newTotal / QUEUE_PAGE_SIZE));
-                            const newUpNext = queue.songs.slice(0, QUEUE_PAGE_SIZE);
-                            const updatedResult = createQueueEmbed(
+                            const total = queue.songs.length;
+                            const tPages = Math.max(1, Math.ceil(total / QUEUE_PAGE_SIZE));
+                            const result = createQueueEmbed(
                                 queue.songs,
                                 queue.currentSong,
-                                newUpNext,
+                                queue.songs.slice(0, QUEUE_PAGE_SIZE),
                                 1,
-                                newTPages,
-                                newTotal
+                                tPages,
+                                total
                             );
                             await interaction.update({
                                 content: `${formatAppEmoji('CHECK_CIRCLE')} Removed **${removed?.title}** from queue.`,
-                                embeds: updatedResult.embeds,
-                                components: updatedResult.components
+                                embeds: result.embeds,
+                                components: result.components
                             });
                         } else {
                             await interaction.reply({ content: 'Queue is already empty.', ephemeral: true });
                         }
                         break;
-                    case 'player-stop':
+                    }
+                    case 'player-stop': {
                         const stopQueue = queueManager.getQueue(interaction.guildId);
                         if (stopQueue?.nowPlayingMessage) {
-                            await stopQueue.nowPlayingMessage.edit({ embeds: [createStoppedEmbed()], components: [] }).catch(() => { });
+                            await stopQueue.nowPlayingMessage.edit({ embeds: [createStoppedEmbed()], components: [] }).catch(function (): void { });
                         }
                         musicPlayer.stop(interaction.guildId);
                         await interaction.deferUpdate();
                         break;
-                    case 'player-repeat':
+                    }
+                    case 'player-repeat': {
                         const modes: ('off' | 'one' | 'all')[] = ['off', 'one', 'all'];
                         const nextMode = modes[(modes.indexOf(queue.repeatMode) + 1) % modes.length];
                         queue.repeatMode = nextMode;
@@ -121,10 +128,11 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
                             const playbackDuration = (queue.player.state as any).resource?.playbackDuration || 0;
                             const elapsedSeconds = Math.floor(playbackDuration / 1000);
                             const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, queue.isPaused, queue.repeatMode, queue.repeatCount);
-                            await queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(() => { });
+                            await queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(function (): void { });
                         }
                         await interaction.deferUpdate();
                         break;
+                    }
                 }
             } catch (error) {
                 logger.error(`Button interaction failed: ${interaction.customId}`, { error });
@@ -133,8 +141,14 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
         }
 
         if (interaction.isStringSelectMenu()) {
-            const queue = queueManager.getQueue(interaction.guildId!);
-            if (!queue) return;
+            if (!interaction.guildId) {
+                return;
+            }
+
+            const queue = queueManager.getQueue(interaction.guildId);
+            if (!queue) {
+                return;
+            }
 
             if (interaction.customId === 'queue-remove-song') {
                 const songIndex = parseInt(interaction.values[0]);

@@ -51,9 +51,15 @@ export function play(
     _skipCount = 0,
 ): Promise<void> {
     const prev = playLocks.get(guildId) ?? Promise.resolve();
-    const next = prev.then(() => _play(guildId, client, existingMessage, _skipCount));
-    const stored = next.catch(() => {});
-    stored.finally(() => { if (playLocks.get(guildId) === stored) playLocks.delete(guildId); });
+    const next = prev.then(function (): Promise<void> {
+        return _play(guildId, client, existingMessage, _skipCount);
+    });
+    const stored = next.catch(function (): void {});
+    stored.finally(function (): void {
+        if (playLocks.get(guildId) === stored) {
+            playLocks.delete(guildId);
+        }
+    });
     playLocks.set(guildId, stored);
     return next;
 }
@@ -65,7 +71,9 @@ async function _play(
     _skipCount = 0,
 ): Promise<void> {
     const queue = queueManager.getQueue(guildId);
-    if (!queue) return;
+    if (!queue) {
+        return;
+    }
 
     if (_skipCount > 10) {
         logger.warn(`Too many consecutive failures for guild ${guildId}, stopping`);
@@ -95,10 +103,13 @@ async function _play(
             queue.songs.push(queue.currentSong);
             song = queueManager.getNextSong(guildId);
             // If the same song is back (e.g. only 1 song in queue), increment
-            if (song === queue.currentSong) queue.repeatCount++;
-            else if (song) queue.repeatCount = 0; // New song in "all" or reset? Usually "repeat all" doesn't count per song
-            
-            reusedMessage = true; 
+            if (song === queue.currentSong) {
+                queue.repeatCount++;
+            } else if (song) {
+                queue.repeatCount = 0; // New song in "all" or reset? Usually "repeat all" doesn't count per song
+            }
+
+            reusedMessage = true;
         } else {
             song = queueManager.getNextSong(guildId);
             queue.repeatCount = 0;
@@ -136,34 +147,31 @@ async function _play(
         resource.volume?.setVolume(queue.volume);
 
         queue.currentSong = song;
-        queue.isPlaying = true;
-        queue.isPaused = false;
-        queue.playStartTime = Date.now();
 
-        queue.player.play(resource);
-        database.incrementSongsPlayed();
+        const cleanUp = function (): void {
+            if (queue) {
+                queue.player.removeListener(AudioPlayerStatus.Idle, onIdle);
+                queue.player.removeListener('error', onError);
+            }
+        };
 
-        const onIdle = () => {
-            queue.player.removeListener(AudioPlayerStatus.Idle, onIdle);
-            queue.player.removeListener('error', onError);
+        const onIdle = function (): void {
+            cleanUp();
             stopProgressUpdate(guildId);
-            play(guildId, client, undefined, 0).catch((error) => {
+            play(guildId, client, undefined, 0).catch(function (error): void {
                 logger.error(`Auto-play next song failed for guild ${guildId}`, { error });
             });
         };
 
-        const onError = (error: unknown) => {
-            queue.player.removeListener('error', onError);
-            queue.player.removeListener(AudioPlayerStatus.Idle, onIdle);
+        const onError = function (error: unknown): void {
+            cleanUp();
             stopProgressUpdate(guildId);
 
             const message = error instanceof Error ? error.message : String(error);
             const stack = error instanceof Error ? error.stack : undefined;
             logger.error(`Audio player error for guild ${guildId}: ${message}`, { stack });
 
-            sendToTextChannel(client, queue.textChannelId, song.title);
-
-            play(guildId, client, undefined, _skipCount + 1).catch((err) => {
+            play(guildId, client, undefined, _skipCount + 1).catch(function (err): void {
                 const skipErrorMsg = err instanceof Error ? err.message : String(err);
                 logger.error(`Skip after error failed for guild ${guildId}: ${skipErrorMsg}`);
             });
@@ -172,17 +180,22 @@ async function _play(
         queue.player.on(AudioPlayerStatus.Idle, onIdle);
         queue.player.on('error', onError);
 
+        queue.isPlaying = true;
+        queue.isPaused = false;
+        queue.playStartTime = Date.now();
+        queue.player.play(resource);
+        database.incrementSongsPlayed();
+
+        const result = createNowPlayingEmbed(song, 0, false, queue.repeatMode, queue.repeatCount);
         if (existingMessage || (reusedMessage && queue.nowPlayingMessage)) {
             const messageToUse = existingMessage || queue.nowPlayingMessage!;
-            const result = createNowPlayingEmbed(song, 0, false, queue.repeatMode, queue.repeatCount);
-            await messageToUse.edit({ embeds: result.embeds, components: result.components }).catch(() => { });
+            await messageToUse.edit({ embeds: result.embeds, components: result.components }).catch(function (): void { });
             queue.nowPlayingMessage = messageToUse;
             startProgressUpdate(guildId);
         } else {
             const textChannel = client.channels.cache.get(queue.textChannelId) as TextBasedChannel | undefined;
             if (textChannel && 'send' in textChannel) {
-                const result = createNowPlayingEmbed(song, 0, false, queue.repeatMode, queue.repeatCount);
-                const message = await textChannel.send({ embeds: result.embeds, components: result.components }).catch(() => { });
+                const message = await textChannel.send({ embeds: result.embeds, components: result.components }).catch(function (): void { });
                 if (message) {
                     queue.nowPlayingMessage = message;
                     startProgressUpdate(guildId);
@@ -191,16 +204,18 @@ async function _play(
         }
     } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        logger.error(`Failed to play song "${song.title}" in guild ${guildId}: ${errorMsg}`);
+        logger.error(`Failed to play song "${song?.title}" in guild ${guildId}: ${errorMsg}`);
 
-        sendToTextChannel(client, queue.textChannelId, song.title);
+        sendToTextChannel(client, queue.textChannelId, song?.title ?? 'Unknown Song');
         await play(guildId, client, undefined, _skipCount + 1);
     }
 }
 
 export function skip(guildId: string): boolean {
     const queue = queueManager.getQueue(guildId);
-    if (!queue) return false;
+    if (!queue) {
+        return false;
+    }
 
     stopProgressUpdate(guildId);
     queue.player.stop();
@@ -209,7 +224,9 @@ export function skip(guildId: string): boolean {
 
 export function stop(guildId: string): void {
     const queue = queueManager.getQueue(guildId);
-    if (!queue) return;
+    if (!queue) {
+        return;
+    }
 
     stopProgressUpdate(guildId);
     queueManager.deleteQueue(guildId);
@@ -217,12 +234,14 @@ export function stop(guildId: string): void {
 
 export function pause(guildId: string): boolean {
     const queue = queueManager.getQueue(guildId);
-    if (!queue || !queue.isPlaying || queue.isPaused) return false;
+    if (!queue || !queue.isPlaying || queue.isPaused) {
+        return false;
+    }
 
     queue.player.pause();
     queue.isPaused = true;
     stopProgressUpdate(guildId);
-    
+
     // Update UI immediately
     if (queue.nowPlayingMessage && queue.currentSong) {
         let elapsedSeconds = 0;
@@ -231,21 +250,23 @@ export function pause(guildId: string): boolean {
             elapsedSeconds = Math.floor(state.resource.playbackDuration / 1000);
         }
         const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, true, queue.repeatMode, queue.repeatCount);
-        queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(() => {});
+        queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(function (): void { });
     }
-    
+
     return true;
 }
 
 export function resume(guildId: string): boolean {
     const queue = queueManager.getQueue(guildId);
-    if (!queue || !queue.isPaused) return false;
+    if (!queue || !queue.isPaused) {
+        return false;
+    }
 
     queue.player.unpause();
     queue.isPaused = false;
     startProgressUpdate(guildId);
-    
-    // Update UI immediately 
+
+    // Update UI immediately
     if (queue.nowPlayingMessage && queue.currentSong) {
         let elapsedSeconds = 0;
         if (queue.player.state.status === AudioPlayerStatus.Playing) {
@@ -253,9 +274,9 @@ export function resume(guildId: string): boolean {
             elapsedSeconds = Math.floor(state.resource.playbackDuration / 1000);
         }
         const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, false, queue.repeatMode, queue.repeatCount);
-        queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(() => {});
+        queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(function (): void { });
     }
-    
+
     return true;
 }
 
@@ -269,7 +290,9 @@ export function stopProgressUpdate(guildId: string): void {
 
 export function startProgressUpdate(guildId: string): void {
     const queue = queueManager.getQueue(guildId);
-    if (!queue || !queue.nowPlayingMessage || !queue.currentSong) return;
+    if (!queue || !queue.nowPlayingMessage || !queue.currentSong) {
+        return;
+    }
 
     if (queue.progressInterval) {
         clearInterval(queue.progressInterval);
@@ -284,21 +307,29 @@ export function startProgressUpdate(guildId: string): void {
         let elapsedSeconds = 0;
 
         if (queue.player.state.status === AudioPlayerStatus.Playing) {
-            const state = queue.player.state as AudioPlayerPlayingState;
+            const state = queue.player.state;
             elapsedSeconds = Math.floor(state.resource.playbackDuration / 1000);
         } else {
             elapsedSeconds = Math.floor((Date.now() - (queue.playStartTime || Date.now())) / 1000);
         }
 
         if (elapsedSeconds >= queue.currentSong.duration) {
+            elapsedSeconds = queue.currentSong.duration;
             stopProgressUpdate(guildId);
-            return;
         }
 
         const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, queue.isPaused, queue.repeatMode, queue.repeatCount);
-        await queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(() => {
+        
+        try {
+            await queue.nowPlayingMessage.edit({ 
+                embeds: result.embeds, 
+                components: result.components 
+            });
+        } catch (error) {
+            // If message is deleted or lacks permission, stop updating to save resources
+            logger.warn(`Could not update progress for guild ${guildId}: ${error instanceof Error ? error.message : String(error)}`);
             stopProgressUpdate(guildId);
-        });
+        }
     }, 15_000);
 }
 
