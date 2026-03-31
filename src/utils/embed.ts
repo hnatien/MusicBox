@@ -1,39 +1,38 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { COLORS, EMOJIS, PROGRESS_BAR_LENGTH, QUEUE_PAGE_SIZE } from './constants.js';
-import { createProgressBar, formatDuration } from './formatDuration.js';
+import { createProgressBar, formatDuration, formatRemainingDuration } from './formatDuration.js';
 import type { Song } from '../models/song.js';
 
 export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaused: boolean = false): { embeds: EmbedBuilder[], components: ActionRowBuilder<ButtonBuilder>[] } {
-    const progressBar = createProgressBar(elapsedSeconds, song.duration, 15);
+    const progressBar = createProgressBar(elapsedSeconds, song.duration, 20);
     const elapsed = formatDuration(elapsedSeconds);
     const total = song.durationFormatted;
 
     const embed = new EmbedBuilder()
-        .setColor(COLORS.NOW_PLAYING)
+        .setColor(0x2B2D31) // Discord dark background roughly
         .setAuthor({ name: song.channelName.toUpperCase() })
         .setTitle(song.title)
         .setURL(song.url)
+        .setThumbnail(song.thumbnail || null)
         .setDescription(
-            `\n${progressBar}\n` +
-            `**${elapsed}** / ${total}\n\n` +
+            `\n**${elapsed}** ${progressBar} ${total}\n\n` +
             `*Shared by <@${song.requestedBy}>*`
-        )
-        .setImage(song.thumbnail || null);
+        );
 
     const playPauseButton = new ButtonBuilder()
         .setCustomId('player-pause-resume')
         .setEmoji(isPaused ? '▶️' : '⏸️')
-        .setStyle(ButtonStyle.Secondary);
+        .setStyle(ButtonStyle.Primary);
 
     const skipButton = new ButtonBuilder()
         .setCustomId('player-skip')
         .setEmoji('⏭️')
-        .setStyle(ButtonStyle.Secondary);
+        .setStyle(ButtonStyle.Primary);
 
     const stopButton = new ButtonBuilder()
         .setCustomId('player-stop')
         .setEmoji('⏹️')
-        .setStyle(ButtonStyle.Secondary);
+        .setStyle(ButtonStyle.Primary);
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(playPauseButton, skipButton, stopButton);
 
