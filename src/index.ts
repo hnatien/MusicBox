@@ -3,12 +3,16 @@ import { MusicClient } from './core/client.js';
 import { logger } from './core/logger.js';
 import { loadCommands } from './commands/index.js';
 import { loadEvents } from './events/index.js';
+import { startWebServer } from './services/webServer.js';
 
 async function main(): Promise<void> {
     const client = new MusicClient();
 
     await loadCommands(client);
     await loadEvents(client);
+
+    // Chạy Web Server song song với Discord Bot
+    startWebServer();
 
     await client.login(config.DISCORD_TOKEN);
 }
