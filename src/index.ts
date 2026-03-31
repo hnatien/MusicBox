@@ -4,21 +4,34 @@ import { logger } from './core/logger.js';
 import { loadCommands } from './commands/index.js';
 import { loadEvents } from './events/index.js';
 import { startWebServer } from './services/webServer.js';
+import { database } from './services/database.js';
 
 async function main(): Promise<void> {
     const client = new MusicClient();
 
+    // Initialize Redis connection
+    try {
+        await database.connect();
+        logger.info('Successfully connected to Redis at startup');
+    } catch (error) {
+        logger.warn('Initial Redis connection failed, will retry on demand');
+    }
+
     await loadCommands(client);
     await loadEvents(client);
 
-    // Chạy Web Server song song với Discord Bot
     startWebServer(client);
 
     await client.login(config.DISCORD_TOKEN);
 }
 
-function shutdown(signal: string): void {
+async function shutdown(signal: string): Promise<void> {
     logger.info(`Received ${signal}. Shutting down gracefully...`);
+    try {
+        await database.disconnect();
+    } catch (err) {
+        logger.error('Error during Redis disconnect', err);
+    }
     process.exit(0);
 }
 

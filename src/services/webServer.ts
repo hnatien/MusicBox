@@ -16,17 +16,25 @@ export function startWebServer(client: MusicClient) {
     
     app.use(express.static(publicPath));
 
-    // API endpoint để lấy dữ liệu thực từ database cục bộ
     app.get('/api/stats', async (req, res) => {
         try {
             const songsPlayed = await database.getSongsPlayed();
+            const isDatabaseHealthy = await database.isHealthy();
+            
             res.json({
                 servers: client.guilds.cache.size,
                 songsPlayed: songsPlayed || 0,
-                uptime: '99.9' 
+                uptime: '99.9',
+                status: 'online',
+                database: isDatabaseHealthy ? 'healthy' : 'disconnected'
             });
         } catch (error) {
-            res.status(500).json({ error: 'Failed to fetch stats' });
+            logger.error('Error fetching stats for API:', error);
+            res.status(500).json({ 
+                error: 'Failed to fetch stats',
+                servers: client.guilds.cache.size,
+                songsPlayed: 0
+            });
         }
     });
 

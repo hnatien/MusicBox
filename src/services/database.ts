@@ -1,41 +1,41 @@
 import { createClient } from 'redis';
 import { logger } from '../core/logger.js';
+import { config } from '../config/environment.js';
 
 class RedisDatabase {
   private client;
   private isConnecting = false;
 
   constructor() {
-    // Ưu tiên REDIS_URL trực tiếp
-    let redisUrl = process.env.REDIS_URL;
-
-    // Nếu REDIS_URL bị rỗng hoặc có định dạng lỗi từ Railway (ví dụ: redis://:@:)
-    if (!redisUrl || redisUrl === 'redis://:@:' || redisUrl.includes('undefined')) {
-      const host = process.env.REDISHOST || process.env.RAILWAY_PRIVATE_DOMAIN || 'localhost';
-      const port = process.env.REDISPORT || '6379';
-      const user = process.env.REDISUSER || 'default';
-      const password = process.env.REDISPASSWORD || process.env.REDIS_PASSWORD || '';
-      
-      if (password) {
-        // Xây dựng URL chuẩn: redis://user:password@host:port
-        redisUrl = `redis://${user}:${password}@${host}:${port}`;
-      } else {
-        redisUrl = `redis://${host}:${port}`;
+    logger.info(`Initializing Redis connection to: ${config.REDIS.HOST}:${config.REDIS.PORT}`);
+    this.client = createClient({ 
+      url: config.REDIS.URL,
+      socket: {
+        reconnectStrategy: (retries) => {
+          if (retries > 10) {
+            logger.error('Redis reconnection failed after 10 retries');
+            return new Error('Redis reconnection failed');
+          }
+          const delay = Math.min(retries * 500, 5000);
+          return delay;
+        }
       }
-    }
-
-    logger.info(`Initializing Redis connection to: ${redisUrl.replace(/:[^:@]+@/, ':****@')}`);
-    this.client = createClient({ url: redisUrl });
+    });
 
     this.client.on('error', (err) => {
-      // Chỉ log lỗi nếu không phải là lỗi kết nối bình thường khi server chưa sẵn sàng
-      if (err.code !== 'ECONNREFUSED') {
+      if (err.code === 'ECONNREFUSED') {
+        logger.warn('Redis connection refused. Ensure Redis is running.');
+      } else {
         logger.error('Redis Client Error', err);
       }
     });
 
     this.client.on('connect', () => {
-      logger.info('Connected to Redis server');
+      logger.info('Redis connection establishing...');
+    });
+
+    this.client.on('ready', () => {
+      logger.info('Connected to Redis and ready to use');
     });
 
     this.client.on('end', () => {
@@ -59,6 +59,23 @@ class RedisDatabase {
     }
   }
 
+  async disconnect() {
+    if (this.client.isOpen) {
+      await this.client.quit();
+      logger.info('Redis connection closed gracefully');
+    }
+  }
+
+  async isHealthy(): Promise<boolean> {
+    try {
+      if (!this.client.isOpen) return false;
+      await this.client.ping();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async getSongsPlayed(): Promise<number> {
     try {
       await this.connect();
@@ -67,6 +84,7 @@ class RedisDatabase {
       const count = await this.client.get('totalSongsPlayed');
       return count ? parseInt(count, 10) : 0;
     } catch (error) {
+      logger.error('Error fetching songs played from Redis', error);
       return 0;
     }
   }
@@ -78,7 +96,7 @@ class RedisDatabase {
 
       await this.client.incr('totalSongsPlayed');
     } catch (error) {
-      // Bỏ qua lỗi increment nếu Redis chưa sẵn sàng
+      logger.error('Error incrementing songs played in Redis', error);
     }
   }
 }

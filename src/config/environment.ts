@@ -8,6 +8,13 @@ interface EnvironmentConfig {
     DEFAULT_VOLUME: number;
     MAX_QUEUE_SIZE: number;
     INACTIVITY_TIMEOUT: number;
+    REDIS: {
+        HOST: string;
+        PORT: number;
+        USER: string;
+        PASS: string;
+        URL: string;
+    };
 }
 
 function getEnv(name: string): string | undefined {
@@ -26,6 +33,21 @@ function validateEnv(): EnvironmentConfig {
         }
     }
 
+    const host = getEnv('REDISHOST') || getEnv('RAILWAY_PRIVATE_DOMAIN') || 'localhost';
+    const port = parseInt(getEnv('REDISPORT') || '6379', 10);
+    const user = getEnv('REDISUSER') || 'default';
+    const pass = getEnv('REDISPASSWORD') || getEnv('REDIS_PASSWORD') || '';
+    
+    // Construct URL if not provided, preferring the user's template if possible
+    let url = getEnv('REDIS_URL');
+    if (!url) {
+        if (pass) {
+            url = `redis://${user}:${pass}@${host}:${port}`;
+        } else {
+            url = `redis://${host}:${port}`;
+        }
+    }
+
     return {
         DISCORD_TOKEN: getEnv('DISCORD_TOKEN')!,
         CLIENT_ID: getEnv('CLIENT_ID')!,
@@ -34,6 +56,13 @@ function validateEnv(): EnvironmentConfig {
         DEFAULT_VOLUME: parseInt(getEnv('DEFAULT_VOLUME') || '50', 10),
         MAX_QUEUE_SIZE: parseInt(getEnv('MAX_QUEUE_SIZE') || '100', 10),
         INACTIVITY_TIMEOUT: parseInt(getEnv('INACTIVITY_TIMEOUT') || '300', 10),
+        REDIS: {
+            HOST: host,
+            PORT: port,
+            USER: user,
+            PASS: pass,
+            URL: url
+        }
     };
 }
 
