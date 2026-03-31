@@ -43,10 +43,12 @@ const repeatCommand: Command = {
         
         if (selectedMode) {
             queue.repeatMode = selectedMode;
+            queue.repeatCount = 0;
         } else {
             // Cycle through modes: off -> one -> all -> off
             const modes: ('off' | 'one' | 'all')[] = ['off', 'one', 'all'];
             queue.repeatMode = modes[(modes.indexOf(queue.repeatMode) + 1) % modes.length];
+            queue.repeatCount = 0;
         }
 
         const modeLabels = {
@@ -59,7 +61,7 @@ const repeatCommand: Command = {
         if (queue.nowPlayingMessage && queue.currentSong) {
             const playbackDuration = (queue.player.state as any).resource?.playbackDuration || 0;
             const elapsedSeconds = Math.floor(playbackDuration / 1000);
-            const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, queue.isPaused, queue.repeatMode);
+            const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, queue.isPaused, queue.repeatMode, queue.repeatCount);
             await queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(() => { });
         }
 

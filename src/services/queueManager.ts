@@ -35,6 +35,7 @@ export function createQueue(
         playStartTime: null,
         inactivityTimer: null,
         repeatMode: 'off',
+        repeatCount: 0,
     };
 
     options.connection.subscribe(player);

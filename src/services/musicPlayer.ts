@@ -68,18 +68,28 @@ export async function play(
     queue.player.removeAllListeners('error');
 
     let song: Song | undefined;
+    let reusedMessage = false;
 
     if (queue.currentSong) {
         if (queue.repeatMode === 'one') {
             song = queue.currentSong;
+            queue.repeatCount++;
+            reusedMessage = true;
         } else if (queue.repeatMode === 'all') {
             queue.songs.push(queue.currentSong);
             song = queueManager.getNextSong(guildId);
+            // If the same song is back (e.g. only 1 song in queue), increment
+            if (song === queue.currentSong) queue.repeatCount++;
+            else if (song) queue.repeatCount = 0; // New song in "all" or reset? Usually "repeat all" doesn't count per song
+            
+            reusedMessage = true; 
         } else {
             song = queueManager.getNextSong(guildId);
+            queue.repeatCount = 0;
         }
     } else {
         song = queueManager.getNextSong(guildId);
+        queue.repeatCount = 0;
     }
 
     if (!song) {
@@ -142,13 +152,16 @@ export async function play(
 
         queue.player.on('error', onError);
 
-        if (existingMessage) {
-            queue.nowPlayingMessage = existingMessage;
+        if (existingMessage || (reusedMessage && queue.nowPlayingMessage)) {
+            const messageToUse = existingMessage || queue.nowPlayingMessage!;
+            const result = createNowPlayingEmbed(song, 0, false, queue.repeatMode, queue.repeatCount);
+            await messageToUse.edit({ embeds: result.embeds, components: result.components }).catch(() => { });
+            queue.nowPlayingMessage = messageToUse;
             startProgressUpdate(guildId);
         } else {
             const textChannel = client.channels.cache.get(queue.textChannelId) as TextBasedChannel | undefined;
             if (textChannel && 'send' in textChannel) {
-                const result = createNowPlayingEmbed(song, 0, false, queue.repeatMode);
+                const result = createNowPlayingEmbed(song, 0, false, queue.repeatMode, queue.repeatCount);
                 const message = await textChannel.send({ embeds: result.embeds, components: result.components }).catch(() => { });
                 if (message) {
                     queue.nowPlayingMessage = message;
@@ -197,7 +210,7 @@ export function pause(guildId: string): boolean {
             const state = queue.player.state as any; // Cast to any to access resource safely across status types
             elapsedSeconds = Math.floor(state.resource.playbackDuration / 1000);
         }
-        const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, true, queue.repeatMode);
+        const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, true, queue.repeatMode, queue.repeatCount);
         queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(() => {});
     }
     
@@ -219,7 +232,7 @@ export function resume(guildId: string): boolean {
             const state = queue.player.state as AudioPlayerPlayingState;
             elapsedSeconds = Math.floor(state.resource.playbackDuration / 1000);
         }
-        const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, false, queue.repeatMode);
+        const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, false, queue.repeatMode, queue.repeatCount);
         queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(() => {});
     }
     
@@ -254,7 +267,7 @@ function startProgressUpdate(guildId: string): void {
             return;
         }
 
-        const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, queue.isPaused, queue.repeatMode);
+        const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, queue.isPaused, queue.repeatMode, queue.repeatCount);
         await queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(() => {
             stopProgressUpdate(guildId);
         });

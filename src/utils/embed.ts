@@ -3,15 +3,15 @@ import { COLORS, EMOJIS, PROGRESS_BAR_LENGTH, QUEUE_PAGE_SIZE, APP_EMOJIS, forma
 import { createProgressBar, formatDuration, formatRemainingDuration } from './formatDuration.js';
 import type { Song } from '../models/song.js';
 
-export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaused: boolean = false, repeatMode: 'off' | 'one' | 'all' = 'off'): { embeds: EmbedBuilder[], components: ActionRowBuilder<ButtonBuilder>[] } {
+export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaused: boolean = false, repeatMode: 'off' | 'one' | 'all' = 'off', repeatCount: number = 0): { embeds: EmbedBuilder[], components: ActionRowBuilder<ButtonBuilder>[] } {
     const progressBar = createProgressBar(elapsedSeconds, song.duration, 20);
     const elapsed = formatDuration(elapsedSeconds);
     const total = song.durationFormatted;
 
     const repeatLabels = {
         off: '',
-        one: '\n\n*Repeat: One*',
-        all: '\n\n*Repeat: All*'
+        one: repeatCount > 0 ? `\n\n*Repeat: One (${repeatCount} times)*` : '\n\n*Repeat: One*',
+        all: repeatCount > 0 ? `\n\n*Repeat: All (${repeatCount} times)*` : '\n\n*Repeat: All*'
     };
 
     const embed = new EmbedBuilder()

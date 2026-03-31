@@ -49,12 +49,13 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
                         const modes: ('off' | 'one' | 'all')[] = ['off', 'one', 'all'];
                         const nextMode = modes[(modes.indexOf(queue.repeatMode) + 1) % modes.length];
                         queue.repeatMode = nextMode;
+                        queue.repeatCount = 0; // Reset count when changing mode
 
                         // Update UI
                         if (queue.nowPlayingMessage && queue.currentSong) {
                             const playbackDuration = (queue.player.state as any).resource?.playbackDuration || 0;
                             const elapsedSeconds = Math.floor(playbackDuration / 1000);
-                            const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, queue.isPaused, queue.repeatMode);
+                            const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, queue.isPaused, queue.repeatMode, queue.repeatCount);
                             await queue.nowPlayingMessage.edit({ embeds: result.embeds, components: result.components }).catch(() => { });
                         }
                         await interaction.deferUpdate();

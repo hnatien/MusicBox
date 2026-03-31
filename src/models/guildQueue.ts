@@ -17,6 +17,7 @@ export interface GuildQueue {
     nowPlayingMessage?: Message;
     progressInterval?: ReturnType<typeof setInterval>;
     repeatMode: 'off' | 'one' | 'all';
+    repeatCount: number;
     mixContext?: {
         songs: Song[];
         index: number;
