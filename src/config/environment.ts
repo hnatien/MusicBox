@@ -15,6 +15,7 @@ interface EnvironmentConfig {
         PASS: string;
         URL: string;
     };
+    ADMIN_IDS: string[];
 }
 
 function getEnv(name: string): string | undefined {
@@ -57,7 +58,8 @@ function validateEnv(): EnvironmentConfig {
             USER: user,
             PASS: pass,
             URL: url // URL đã được build chuẩn ở trên
-        }
+        },
+        ADMIN_IDS: (getEnv('ADMIN_IDS') || '').split(',').map(id => id.trim()).filter(id => !!id)
     };
 }
 

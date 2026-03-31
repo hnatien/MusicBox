@@ -25,7 +25,7 @@ export function startWebServer(client: MusicClient) {
                 servers: client.guilds.cache.size,
                 songsPlayed: songsPlayed || 0,
                 uptime: '99.9',
-                status: 'online',
+                status: client.isLocked ? 'maintenance' : 'online',
                 database: isDatabaseHealthy ? 'healthy' : 'disconnected'
             });
         } catch (error) {
@@ -42,7 +42,7 @@ export function startWebServer(client: MusicClient) {
         try {
             const isDatabaseHealthy = await database.isHealthy();
             const status = {
-                status: 'up',
+                status: client.isLocked ? 'maintenance' : 'up',
                 client: client.isReady() ? 'connected' : 'connecting',
                 database: isDatabaseHealthy ? 'healthy' : 'disconnected',
                 guilds: client.guilds.cache.size,

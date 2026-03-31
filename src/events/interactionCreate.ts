@@ -1,11 +1,12 @@
-import { Collection, GuildMember } from 'discord.js';
+import { Collection, GuildMember, EmbedBuilder } from 'discord.js';
 import type { BotEvent } from './index.js';
 import type { MusicClient } from '../core/client.js';
 import { logger } from '../core/logger.js';
 import * as musicPlayer from '../services/musicPlayer.js';
 import * as queueManager from '../services/queueManager.js';
 import { createErrorEmbed, createNowPlayingEmbed, createStoppedEmbed, createQueueEmbed } from '../utils/embed.js';
-import { QUEUE_PAGE_SIZE, formatAppEmoji } from '../utils/constants.js';
+import { QUEUE_PAGE_SIZE, formatAppEmoji, COLORS } from '../utils/constants.js';
+import { config } from '../config/environment.js';
 
 const cooldowns = new Collection<string, Collection<string, number>>();
 
@@ -13,6 +14,20 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
     name: 'interactionCreate',
     execute: async (client, interaction) => {
         const musicClient = client as MusicClient;
+
+        // Maintenance Mode Check
+        if (musicClient.isLocked && !config.ADMIN_IDS.includes(interaction.user.id)) {
+            const maintenanceEmbed = new EmbedBuilder()
+                .setColor(COLORS.WARNING)
+                .setTitle(`${formatAppEmoji('ERROR_CIRCLE')} System Maintenance`)
+                .setDescription('The bot is currently down for maintenance. Please try again later.')
+                .setTimestamp();
+
+            if (interaction.isRepliable()) {
+                await interaction.reply({ embeds: [maintenanceEmbed], ephemeral: true });
+            }
+            return;
+        }
 
         if (interaction.isButton()) {
             if (!interaction.guildId) return;

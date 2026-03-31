@@ -3,6 +3,7 @@ import type { Command } from '../models/command.js';
 
 export class MusicClient extends Client {
     public commands: Collection<string, Command> = new Collection();
+    public isLocked: boolean = false;
 
     public updatePresence(): void {
         const guildCount = this.guilds.cache.size;
