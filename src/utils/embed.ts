@@ -24,7 +24,7 @@ export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaus
 
     const embed = new EmbedBuilder()
         .setColor(0x2B2D31)
-        .setAuthor({ name: song.channelName.toUpperCase(), iconURL: getEmojiUrl(APP_EMOJIS.WAVES) })
+        .setAuthor({ name: song.channelName.toUpperCase(), iconURL: getEmojiUrl(APP_EMOJIS.MUSIC_NOTES) })
         .setTitle(song.title)
         .setURL(song.url)
         .setImage(song.thumbnail || null)
