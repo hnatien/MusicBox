@@ -31,6 +31,7 @@
     "libsodium-wrappers": "^0.8.2",
     "lowdb": "^7.0.1",
     "opusscript": "^0.0.8",
+    "redis": "^5.11.0",
     "winston": "^3.19.0",
     "youtube-dl-exec": "^3.1.1",
     "youtube-sr": "^4.3.12"
