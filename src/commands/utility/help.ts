@@ -1,45 +1,48 @@
-import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
+import { AttachmentBuilder, SlashCommandBuilder } from 'discord.js';
 import type { Command } from '../../models/command.js';
-import { COLORS } from '../../utils/constants.js';
+import { renderHelpImage } from '../../utils/canvasRenderer.js';
 
 const helpCommand: Command = {
     data: new SlashCommandBuilder().setName('help').setDescription('Show all available commands'),
     cooldown: 5,
     execute: async (interaction) => {
-        const clientUser = interaction.client.user;
+        await interaction.deferReply();
 
-        const embed = new EmbedBuilder()
-            .setColor(COLORS.PRIMARY)
-            .setAuthor({
-                name: 'MUSIC BOX HELP CENTER',
-            })
-            .setDescription('Explore all available commands.')
-            .addFields(
-                {
-                    name: 'MUSIC',
-                    value: [
-                        '**/play** `<query>` · Play by URL or search',
-                        '**/search** `<query>` · Search and pick',
-                        '**/skip** · Go to next track',
-                        '**/stop** · End playback session',
-                        '**/nowplaying** · Show track details',
-                        '**/queue** · View upcoming tracks',
-                        '**/volume** `<1-100>` · Set audio level',
-                        '**/pause** · Halt playback',
-                        '**/resume** · Continue playback',
-                    ].join('\n'),
-                },
-                {
-                    name: 'SYSTEM',
-                    value: [
-                        '**/ping** · Show latency',
-                        '**/help** · Show this menu',
-                        '**/update** · Recent changes',
-                    ].join('\n'),
-                },
-            );
+        const categories = [
+            {
+                name: 'Music',
+                commands: [
+                    { name: 'play', description: 'Play by URL or search', args: 'query' },
+                    { name: 'search', description: 'Search and pick a track', args: 'query' },
+                    { name: 'skip', description: 'Go to next track' },
+                    { name: 'stop', description: 'End playback session' },
+                    { name: 'nowplaying', description: 'Show current track' },
+                    { name: 'queue', description: 'View upcoming tracks' },
+                    { name: 'volume', description: 'Set audio level', args: '1-100' },
+                    { name: 'pause /resume', description: 'Halt or continue playback' },
+                ],
+            },
+            {
+                name: 'System',
+                commands: [
+                    { name: 'ping', description: 'Show latency' },
+                    { name: 'help', description: 'Show this menu' },
+                ],
+            },
+        ];
 
-        await interaction.reply({ embeds: [embed] });
+        try {
+            const buffer = await renderHelpImage(categories);
+            const attachment = new AttachmentBuilder(buffer, { name: 'help.png' });
+
+            await interaction.editReply({ 
+                content: 'Các lệnh của **MusicBox**:',
+                files: [attachment] 
+            });
+        } catch (error) {
+            console.error('Error rendering help image:', error);
+            await interaction.editReply('Có lỗi xảy ra khi tạo danh sách lệnh. Vui lòng thử lại sau.');
+        }
     },
 };
 
