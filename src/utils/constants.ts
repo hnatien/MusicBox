@@ -10,7 +10,23 @@ export const COLORS = {
 } as const;
 
 export const EMOJIS = {
-    // Apple-inspired minimalist system icons
+    // Standard Minimalist Emojis for Button compatibility
+    MUSIC: '🎵', 
+    SEARCH: '🔍',
+    QUEUE: '📜',
+    SKIP: '⏭️',
+    PAUSE: '⏸️',
+    RESUME: '▶️',
+    STOP: '⏹️',
+    VOLUME: '🔊',
+    ERROR: '❌',
+    WARNING: '⚠️',
+    SUCCESS: '✅',
+    LOADING: '⏳',
+} as const;
+
+// SF Symbols for Text-only areas (Embed descriptions/Titles)
+export const SF_SYMBOLS = {
     MUSIC: '􀑪', 
     SEARCH: '􀊫',
     QUEUE: '􀑬',

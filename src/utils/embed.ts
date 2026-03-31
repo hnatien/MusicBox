@@ -22,18 +22,18 @@ export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaus
 
     const playPauseButton = new ButtonBuilder()
         .setCustomId('player-pause-resume')
-        .setEmoji(isPaused ? EMOJIS.RESUME : EMOJIS.PAUSE)
+        .setEmoji(isPaused ? '▶️' : '⏸️')
         .setStyle(ButtonStyle.Secondary);
 
     const skipButton = new ButtonBuilder()
         .setCustomId('player-skip')
-        .setEmoji(EMOJIS.SKIP)
+        .setEmoji('⏭️')
         .setStyle(ButtonStyle.Secondary);
 
     const stopButton = new ButtonBuilder()
         .setCustomId('player-stop')
-        .setEmoji(EMOJIS.STOP)
-        .setStyle(ButtonStyle.Danger);
+        .setEmoji('⏹️')
+        .setStyle(ButtonStyle.Secondary);
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(playPauseButton, skipButton, stopButton);
 
