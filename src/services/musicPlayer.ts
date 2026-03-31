@@ -175,7 +175,7 @@ export function pause(guildId: string): boolean {
     if (queue.nowPlayingMessage && queue.currentSong) {
         let elapsedSeconds = 0;
         if (queue.player.state.status === AudioPlayerStatus.Paused) {
-            const state = queue.player.state as AudioPlayerPlayingState;
+            const state = queue.player.state as any; // Cast to any to access resource safely across status types
             elapsedSeconds = Math.floor(state.resource.playbackDuration / 1000);
         }
         const result = createNowPlayingEmbed(queue.currentSong, elapsedSeconds, true);

@@ -29,9 +29,9 @@ const nowPlayingCommand: Command = {
             elapsed = Math.floor((Date.now() - queue.playStartTime) / 1000);
         }
 
-        const embed = createNowPlayingEmbed(queue.currentSong, elapsed);
+        const result = createNowPlayingEmbed(queue.currentSong, elapsed, queue.isPaused);
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.reply({ embeds: result.embeds, components: result.components });
     },
 };
 

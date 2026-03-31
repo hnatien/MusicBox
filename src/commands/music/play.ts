@@ -127,8 +127,8 @@ const playCommand: Command = {
             const position = queueManager.addSong(interaction.guildId!, song);
 
             if (isNewQueue || !queue.isPlaying) {
-                const embed = createNowPlayingEmbed(song, 0);
-                const message = await interaction.editReply({ embeds: [embed] });
+                const result = createNowPlayingEmbed(song, 0);
+                const message = await interaction.editReply({ embeds: result.embeds, components: result.components });
                 await musicPlayer.play(interaction.guildId!, client, message);
             } else {
                 await interaction.editReply({ embeds: [createSongAddedEmbed(song, position)] });

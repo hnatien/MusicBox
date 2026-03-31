@@ -106,9 +106,10 @@ const searchCommand: Command = {
 
                 if (isNewQueue || !queue.isPlaying) {
                     await musicPlayer.play(interaction.guildId!, client);
+                    const result = createNowPlayingEmbed(song, 0);
                     await selection.update({
-                        embeds: [createNowPlayingEmbed(song, 0)],
-                        components: [],
+                        embeds: result.embeds,
+                        components: result.components,
                     });
                 } else {
                     await selection.update({

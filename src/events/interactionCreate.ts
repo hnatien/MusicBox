@@ -62,7 +62,6 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
             return;
         }
 
-        const musicClient = client as MusicClient;
         const command = musicClient.commands.get(interaction.commandName);
 
         if (!command) {
