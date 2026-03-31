@@ -22,17 +22,17 @@ export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaus
     const playPauseButton = new ButtonBuilder()
         .setCustomId('player-pause-resume')
         .setEmoji({ id: isPaused ? APP_EMOJIS.PLAY : APP_EMOJIS.PAUSE })
-        .setStyle(ButtonStyle.Primary);
+        .setStyle(ButtonStyle.Secondary);
 
     const skipButton = new ButtonBuilder()
         .setCustomId('player-skip')
         .setEmoji({ id: APP_EMOJIS.SKIP })
-        .setStyle(ButtonStyle.Primary);
+        .setStyle(ButtonStyle.Secondary);
 
     const stopButton = new ButtonBuilder()
         .setCustomId('player-stop')
         .setEmoji({ id: APP_EMOJIS.STOP })
-        .setStyle(ButtonStyle.Primary);
+        .setStyle(ButtonStyle.Secondary);
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(playPauseButton, skipButton, stopButton);
 
