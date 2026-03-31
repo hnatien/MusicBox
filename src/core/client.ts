@@ -8,9 +8,9 @@ export class MusicClient extends Client {
         const guildCount = this.guilds.cache.size;
         this.user?.setPresence({
             activities: [{
-                name: `meowing in ${guildCount} servers!`,
+                name: `/help for commands | sleeping in ${guildCount} servers!`,
                 type: ActivityType.Custom,
-                state: `meowing in ${guildCount} servers!`,
+                state: `/help for commands | sleeping in ${guildCount} servers!`,
             }],
             status: PresenceUpdateStatus.Online,
         });
