@@ -4,7 +4,8 @@ import type { MusicClient } from '../core/client.js';
 import { logger } from '../core/logger.js';
 import * as musicPlayer from '../services/musicPlayer.js';
 import * as queueManager from '../services/queueManager.js';
-import { createErrorEmbed, createNowPlayingEmbed, createStoppedEmbed } from '../utils/embed.js';
+import { createErrorEmbed, createNowPlayingEmbed, createStoppedEmbed, createQueueEmbed } from '../utils/embed.js';
+import { QUEUE_PAGE_SIZE } from '../utils/constants.js';
 
 const cooldowns = new Collection<string, Collection<string, number>>();
 
@@ -40,6 +41,13 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
                     case 'player-skip':
                         musicPlayer.skip(interaction.guildId);
                         await interaction.deferUpdate();
+                        break;
+                    case 'player-queue-view':
+                        const upNext = queue.songs.slice(0, QUEUE_PAGE_SIZE);
+                        const totalSongsCount = queue.songs.length;
+                        const tPages = Math.max(1, Math.ceil(totalSongsCount / QUEUE_PAGE_SIZE));
+                        const qEmbed = createQueueEmbed(queue.songs, queue.currentSong, upNext, 1, tPages, totalSongsCount);
+                        await interaction.reply({ embeds: [qEmbed], ephemeral: true });
                         break;
                     case 'player-stop':
                         const stopQueue = queueManager.getQueue(interaction.guildId);

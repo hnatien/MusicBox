@@ -46,7 +46,12 @@ export function createNowPlayingEmbed(song: Song, elapsedSeconds: number, isPaus
         .setEmoji({ id: APP_EMOJIS.STOP })
         .setStyle(ButtonStyle.Secondary);
 
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(playPauseButton, skipButton, repeatButton, stopButton);
+    const queueButton = new ButtonBuilder()
+        .setCustomId('player-queue-view')
+        .setEmoji({ id: APP_EMOJIS.QUEUE })
+        .setStyle(ButtonStyle.Secondary);
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(playPauseButton, skipButton, repeatButton, queueButton, stopButton);
 
     return { embeds: [embed], components: [row] };
 }
@@ -105,37 +110,40 @@ export function createSearchEmbed(query: string, songs: Song[]): EmbedBuilder {
 export function createQueueEmbed(
     songs: Song[],
     currentSong: Song | null,
+    nextSongs: Song[],
     page: number,
     totalPages: number,
-    totalSongs?: number,
+    totalSongs: number,
 ): EmbedBuilder {
     const embed = new EmbedBuilder()
-        .setColor(COLORS.PRIMARY)
-        .setAuthor({ name: 'MUSIC QUEUE' });
+        .setColor(0x2B2D31)
+        .setAuthor({ name: 'MUSIC QUEUE', iconURL: getEmojiUrl(APP_EMOJIS.QUEUE) });
 
     let description = '';
 
     if (currentSong) {
         description += `**NOW PLAYING**\n`;
-        description += `[${currentSong.title}](${currentSong.url}) · \`${currentSong.durationFormatted}\`\n\n`;
-        description += `**UP NEXT**\n`;
+        description += `[${currentSong.title}](${currentSong.url})\n`;
+        description += `${formatAppEmoji('HEART')} *Shared by <@${currentSong.requestedBy}>*\n\n`;
     }
 
-    if (songs.length === 0) {
-        description += '*Queue is empty — use `/play` to add songs*';
-    } else {
+    if (nextSongs.length > 0) {
+        description += `**UP NEXT**\n`;
         const offset = (page - 1) * QUEUE_PAGE_SIZE;
-        description += songs
+        description += nextSongs
             .map(
                 (song, i) =>
-                    `\`${offset + i + 1}\` **[${song.title}](${song.url})**\n` +
-                    `╰ ${song.channelName} · \`${song.durationFormatted}\``,
+                    `\`${offset + i + 1}\` [${song.title}](${song.url}) · \`${song.durationFormatted}\` <@${song.requestedBy}>`,
             )
-            .join('\n\n');
+            .join('\n');
+    } else {
+        description += '*No more songs in queue*';
     }
 
-    if (totalSongs && totalSongs > 0) {
-        embed.setFooter({ text: `${totalSongs} songs in queue · Page ${page}/${totalPages}` });
+    embed.setDescription(description);
+
+    if (totalSongs > 0) {
+        embed.setFooter({ text: `${totalSongs} ${totalSongs === 1 ? 'song' : 'songs'} in queue · Page ${page}/${totalPages}` });
     }
 
     return embed;
