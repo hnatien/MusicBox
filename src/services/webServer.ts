@@ -22,8 +22,8 @@ export function startWebServer(client: MusicClient) {
             const songsPlayed = await database.getSongsPlayed();
             res.json({
                 servers: client.guilds.cache.size,
-                songsPlayed: songsPlayed,
-                uptime: '99.9%' 
+                songsPlayed: songsPlayed || 0,
+                uptime: '99.9' 
             });
         } catch (error) {
             res.status(500).json({ error: 'Failed to fetch stats' });

@@ -6,23 +6,25 @@ class RedisDatabase {
   private isConnecting = false;
 
   constructor() {
-    // Xây dựng URL Redis một cách an toàn
+    // Ưu tiên REDIS_URL trực tiếp
     let redisUrl = process.env.REDIS_URL;
 
     // Nếu REDIS_URL bị rỗng hoặc có định dạng lỗi từ Railway (ví dụ: redis://:@:)
-    if (!redisUrl || redisUrl === 'redis://:@:') {
-      const host = process.env.REDISHOST || 'localhost';
+    if (!redisUrl || redisUrl === 'redis://:@:' || redisUrl.includes('undefined')) {
+      const host = process.env.REDISHOST || process.env.RAILWAY_PRIVATE_DOMAIN || 'localhost';
       const port = process.env.REDISPORT || '6379';
-      const user = process.env.REDISUSER || '';
-      const password = process.env.REDISPASSWORD || '';
+      const user = process.env.REDISUSER || 'default';
+      const password = process.env.REDISPASSWORD || process.env.REDIS_PASSWORD || '';
       
       if (password) {
+        // Xây dựng URL chuẩn: redis://user:password@host:port
         redisUrl = `redis://${user}:${password}@${host}:${port}`;
       } else {
         redisUrl = `redis://${host}:${port}`;
       }
     }
 
+    logger.info(`Initializing Redis connection to: ${redisUrl.replace(/:[^:@]+@/, ':****@')}`);
     this.client = createClient({ url: redisUrl });
 
     this.client.on('error', (err) => {
