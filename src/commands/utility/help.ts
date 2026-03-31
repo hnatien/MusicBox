@@ -12,21 +12,21 @@ const helpCommand: Command = {
             {
                 name: 'Music',
                 commands: [
-                    { name: 'play', description: 'Play by URL or search', args: 'query' },
-                    { name: 'search', description: 'Search and pick a track', args: 'query' },
-                    { name: 'skip', description: 'Go to next track' },
-                    { name: 'stop', description: 'End playback session' },
-                    { name: 'nowplaying', description: 'Show current track' },
-                    { name: 'queue', description: 'View upcoming tracks' },
-                    { name: 'volume', description: 'Set audio level', args: '1-100' },
-                    { name: 'pause /resume', description: 'Halt or continue playback' },
+                    { name: 'play', description: 'Play by URL or search', args: 'query', icon: '􀊄', color: '#FF2D55' },
+                    { name: 'search', description: 'Search and pick a track', args: 'query', icon: '􀊫', color: '#FF9500' },
+                    { name: 'skip', description: 'Go to next track', icon: '􀊐', color: '#007AFF' },
+                    { name: 'stop', description: 'End playback session', icon: '􀊆', color: '#FF3B30' },
+                    { name: 'nowplaying', description: 'Show current track', icon: '􀊣', color: '#5856D6' },
+                    { name: 'queue', description: 'View upcoming tracks', icon: '􀑬', color: '#4CD964' },
+                    { name: 'volume', description: 'Set audio level', args: '1-100', icon: '􀊩', color: '#AF52DE' },
+                    { name: 'pause /resume', description: 'Halt or continue playback', icon: '􀊄', color: '#FFCC00' },
                 ],
             },
             {
                 name: 'System',
                 commands: [
-                    { name: 'ping', description: 'Show latency' },
-                    { name: 'help', description: 'Show this menu' },
+                    { name: 'ping', description: 'Show latency', icon: '􀵬', color: '#8E8E93' },
+                    { name: 'help', description: 'Show this menu', icon: '􀄗', color: '#2C2C2E' },
                 ],
             },
         ];
