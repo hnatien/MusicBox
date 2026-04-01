@@ -32,31 +32,30 @@ function parseCookies(header: string): Record<string, string> {
     return out;
 }
 
-// ── Session store ────────────────────────────────────────────────────────────
-const sessions = new Map<string, { userId: string; expiresAt: number }>();
+// ── Session utilities ────────────────────────────────────────────────────────────
 const pendingStates = new Set<string>();
 
-setInterval(() => {
-    const now = Date.now();
-    for (const [id, session] of sessions) {
-        if (session.expiresAt < now) sessions.delete(id);
-    }
-}, 30 * 60 * 1000).unref();
-
-function getAdminSession(req: express.Request): { userId: string } | null {
+async function getAdminSession(req: express.Request): Promise<{ userId: string } | null> {
     const cookies = parseCookies(req.headers.cookie || '');
     const sid = cookies['mb_admin_sid'];
     if (!sid) return null;
-    const session = sessions.get(sid);
-    if (!session || session.expiresAt < Date.now()) {
-        sessions.delete(sid);
+    
+    try {
+        const session = await database.getSession(sid);
+        if (!session || session.expiresAt < Date.now()) {
+            if (session) await database.deleteSession(sid);
+            return null;
+        }
+        return { userId: session.userId };
+    } catch (error) {
+        logger.error(`Error retrieving session ${sid} from DB:`, error);
         return null;
     }
-    return { userId: session.userId };
 }
 
-function requireAdminSession(req: express.Request, res: express.Response, next: express.NextFunction): void {
-    if (!getAdminSession(req)) {
+async function requireAdminSession(req: express.Request, res: express.Response, next: express.NextFunction): Promise<void> {
+    const session = await getAdminSession(req);
+    if (!session) {
         res.status(401).json({ error: 'Not authenticated' });
         return;
     }
@@ -176,7 +175,8 @@ export function startWebServer(client: MusicClient) {
             }
 
             const sid = randomUUID();
-            sessions.set(sid, { userId: user.id, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
+            const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+            await database.setSession(sid, { userId: user.id, expiresAt });
 
             res.cookie('mb_admin_sid', sid, {
                 httpOnly: true,
@@ -194,16 +194,22 @@ export function startWebServer(client: MusicClient) {
         }
     });
 
-    app.get('/admin/logout', (req, res) => {
+    app.get('/admin/logout', async (req, res) => {
         const cookies = parseCookies(req.headers.cookie || '');
         const sid = cookies['mb_admin_sid'];
-        if (sid) sessions.delete(sid);
+        if (sid) await database.deleteSession(sid).catch(() => {});
         res.clearCookie('mb_admin_sid', { path: '/' });
         res.redirect('/admin');
     });
 
     // ── Admin API ────────────────────────────────────────────────────────────
-    app.get('/api/admin/stats', requireAdminSession, async (req, res) => {
+    app.get('/api/admin/stats', async (req, res) => {
+        const session = await getAdminSession(req);
+        if (!session) {
+            res.status(401).json({ error: 'Not authenticated' });
+            return;
+        }
+
         try {
             const songsPlayed = await database.getSongsPlayed();
             const isDatabaseHealthy = await database.isHealthy();
@@ -222,7 +228,13 @@ export function startWebServer(client: MusicClient) {
         }
     });
 
-    app.post('/api/admin/maintenance', requireAdminSession, (req, res) => {
+    app.post('/api/admin/maintenance', async (req, res) => {
+        const session = await getAdminSession(req);
+        if (!session) {
+            res.status(401).json({ error: 'Not authenticated' });
+            return;
+        }
+
         const { enabled } = req.body as { enabled: unknown };
         if (typeof enabled !== 'boolean') {
             res.status(400).json({ error: 'enabled must be boolean' });

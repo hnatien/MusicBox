@@ -98,6 +98,44 @@ class RedisDatabase {
       logger.error('Error incrementing songs played in Redis', error);
     }
   }
+
+  async setSession(sid: string, data: { userId: string; expiresAt: number }): Promise<void> {
+    try {
+      await this.connect();
+      if (!this.client.isOpen) return;
+
+      const ttl = Math.ceil((data.expiresAt - Date.now()) / 1000);
+      if (ttl <= 0) return;
+
+      await this.client.setEx(`session:${sid}`, ttl, JSON.stringify(data));
+    } catch (error) {
+      logger.error(`Error saving session ${sid} to Redis`, error);
+    }
+  }
+
+  async getSession(sid: string): Promise<{ userId: string; expiresAt: number } | null> {
+    try {
+      await this.connect();
+      if (!this.client.isOpen) return null;
+
+      const data = await this.client.get(`session:${sid}`);
+      return data ? JSON.parse(data) : null;
+    } catch (error) {
+      logger.error(`Error fetching session ${sid} from Redis`, error);
+      return null;
+    }
+  }
+
+  async deleteSession(sid: string): Promise<void> {
+    try {
+      await this.connect();
+      if (!this.client.isOpen) return;
+
+      await this.client.del(`session:${sid}`);
+    } catch (error) {
+      logger.error(`Error deleting session ${sid} from Redis`, error);
+    }
+  }
 }
 
 export const database = new RedisDatabase();
