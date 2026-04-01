@@ -151,6 +151,10 @@ export function getNextMixSong(guildId: string): Song | undefined {
     return song;
 }
 
+export function getActiveQueueCount(): number {
+    return queues.size;
+}
+
 export function clearMixContext(guildId: string): void {
     const queue = queues.get(guildId);
     if (queue) {
