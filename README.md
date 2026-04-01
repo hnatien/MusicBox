@@ -9,62 +9,93 @@
   </p>
 </p>
 
+---
+
+## Features
+
+- Play from YouTube URLs or search queries (single tracks, playlists, Mixes)
+- Interactive search with selectable results
+- Per-guild queue with pagination and volume control
+- Now playing embed with live progress bar
+- Auto-disconnect on inactivity or empty voice channel
+- YouTube cookie support to bypass rate limits
+
 ## Prerequisites
 
-- Node.js 20 or higher
-- FFmpeg (installed on system or via `ffmpeg-static`)
-- Redis server (for queue management)
-- Discord Bot Token via [Discord Developer Portal](https://discord.com/developers/applications)
+- Node.js >= 20
+- A Discord bot token — [Developer Portal](https://discord.com/developers/applications)
+- FFmpeg — bundled via `ffmpeg-static`, no manual install needed
 
-## Setup
+## Quick Start
 
-1. Install dependencies
-   ```bash
-   npm install
-   ```
-
-2. Configure environment variables
-   ```bash
-   cp .env.example .env
-   ```
-   Edit `.env` and provide at least `DISCORD_TOKEN` and `CLIENT_ID`.
-
-3. Register slash commands
-   ```bash
-   # Registers commands globally or to DEV_GUILD_ID if set
-   npm run deploy-commands
-   ```
-
-## Running the Bot
-
-### Development
-Runs the bot with `tsx watch` for hot reloading.
 ```bash
+# 1. Install dependencies
+npm install
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env — set DISCORD_TOKEN and CLIENT_ID at minimum
+
+# 3. Register slash commands
+npm run deploy-commands
+
+# 4. Start
 npm run dev
 ```
 
-### Production
-Build the TypeScript source and run the compiled JavaScript.
+## Configuration
+
+| Variable | Required | Default | Description |
+|---|:---:|:---:|---|
+| `DISCORD_TOKEN` | ✅ | — | Bot token from Discord Developer Portal |
+| `CLIENT_ID` | ✅ | — | Application client ID |
+| `DEV_GUILD_ID` | — | — | Guild ID for instant command updates during development |
+| `LOG_LEVEL` | — | `info` | `debug` · `info` · `warn` · `error` |
+| `DEFAULT_VOLUME` | — | `50` | Initial playback volume (1–100) |
+| `MAX_QUEUE_SIZE` | — | `100` | Max songs per guild queue |
+| `INACTIVITY_TIMEOUT` | — | `300` | Seconds of inactivity before auto-disconnect |
+| `YOUTUBE_COOKIE` | — | — | Cookie string to bypass YouTube rate limits |
+
+## Commands
+
+| Command | Description |
+|---|---|
+| `/play <query>` | Play by URL or search term — supports playlists and YouTube Mixes |
+| `/search <query>` | Search YouTube and pick from top 5 results |
+| `/nowplaying` | Show current track with progress bar |
+| `/queue [page]` | View the song queue (10 per page) |
+| `/skip` | Skip the current track |
+| `/pause` / `/resume` | Pause or resume playback |
+| `/volume <1-100>` | Set playback volume |
+| `/stop` | Stop playback and clear the queue |
+| `/ping` | Show bot latency |
+| `/help` | List all available commands |
+
+## Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start with hot reload (development) |
+| `npm run build` | Compile TypeScript to `dist/` |
+| `npm start` | Run the compiled production build |
+| `npm run deploy-commands` | Register slash commands with Discord |
+| `npm run lint` | ESLint with auto-fix |
+| `npm run format` | Format source files with Prettier |
+
+## Docker
+
 ```bash
-npm run build
-npm start
+# Build
+docker build -t musicbox:latest .
+
+# Run
+docker run --rm --env-file .env musicbox:latest
 ```
 
-### Docker
-Ensure Docker and Docker Compose are installed.
-```bash
-docker build -t musicbox .
-docker run -d --env-file .env musicbox
-```
+The image bundles `python3` and `ffmpeg` — no host dependencies needed.
 
-## Available Commands
+**Railway:** Leave _Pre-deploy Command_ and _Custom Start Command_ empty. Enable teardown to prevent overlapping instances during deploys.
 
-- `/play` — Play music from YouTube URL or search query
-- `/nowplaying` — Show current song details
-- `/queue` — View the current song queue
-- `/skip` — Skip the current song
-- `/stop` — Stop playback and clear the queue
-- `/pause` / `/resume` — Control playback
-- `/repeat` — Toggle repeat mode
-- `/search` — Search and select from results
-- `/help` — List all available commands
+## License
+
+[ISC](LICENSE)
