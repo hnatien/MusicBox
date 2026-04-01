@@ -1,4 +1,7 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { PassThrough, type Readable } from 'node:stream';
 import { YouTube } from 'youtube-sr';
 import type { Song } from '../models/song.js';
@@ -67,17 +70,31 @@ function cleanCache(): void {
 
 setInterval(cleanCache, 15 * 60 * 1000).unref();
 
-function getAuthFlags(): string[] {
-    const flags: string[] = [];
-
-    flags.push('--js-runtimes', 'node');
-
-    const rawCookie = process.env.YOUTUBE_COOKIE;
-    const cookie = rawCookie?.replace(/^["']|["']$/g, '').trim();
-    if (cookie) {
-        flags.push('--add-header', `Cookie:${cookie}`);
+// Write YOUTUBE_COOKIE to a Netscape-format file once at startup.
+// yt-dlp deprecated --add-header Cookie: as a security risk (exits code 1).
+let cookieFilePath: string | null = null;
+const rawEnvCookie = process.env.YOUTUBE_COOKIE?.replace(/^["']|["']$/g, '').trim();
+if (rawEnvCookie) {
+    try {
+        const lines = ['# Netscape HTTP Cookie File'];
+        for (const part of rawEnvCookie.split(';')) {
+            const eq = part.indexOf('=');
+            if (eq < 0) continue;
+            const name = part.slice(0, eq).trim();
+            const value = part.slice(eq + 1).trim();
+            if (name) lines.push(`.youtube.com\tTRUE\t/\tFALSE\t0\t${name}\t${value}`);
+        }
+        cookieFilePath = join(tmpdir(), 'musicbox_yt_cookies.txt');
+        writeFileSync(cookieFilePath, lines.join('\n'), 'utf8');
+        logger.info('YouTube cookie file written');
+    } catch (err) {
+        logger.warn(`Failed to write YouTube cookie file: ${err instanceof Error ? err.message : String(err)}`);
     }
+}
 
+function getAuthFlags(): string[] {
+    const flags = ['--js-runtimes', 'node'];
+    if (cookieFilePath) flags.push('--cookies', cookieFilePath);
     return flags;
 }
 
