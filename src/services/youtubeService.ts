@@ -24,8 +24,9 @@ const CACHE_TTL_MS = 60 * 60 * 1000;
 const MAX_CACHE_SIZE = 500;
 const metadataCache = new Map<string, CacheEntry>();
 
-const FFMPEG_PROBE_SIZE = 131_072;    // 128 KiB — sufficient for direct CDN stream URLs
-const FFMPEG_ANALYZE_DURATION = 0;    // skip duration analysis on streaming URLs
+const FFMPEG_PROBE_SIZE = 128_000;
+const FFMPEG_ANALYZE_DURATION = 0;
+const FFMPEG_THREADS = 1;
 
 function cacheSet(key: string, entry: CacheEntry): void {
     if (metadataCache.size >= MAX_CACHE_SIZE) {
@@ -355,6 +356,7 @@ function createYtdlpStream(url: string): Readable {
         '-i', 'pipe:0',
         '-analyzeduration', String(FFMPEG_ANALYZE_DURATION),
         '-probesize', String(FFMPEG_PROBE_SIZE),
+        '-threads', String(FFMPEG_THREADS),
         '-loglevel', '0',
         '-f', 's16le',
         '-ar', '48000',
@@ -367,8 +369,7 @@ function createYtdlpStream(url: string): Readable {
 
     ytdlpProc.stdout!.pipe(ffmpegProc.stdin!);
 
-    // 96 KiB ≈ 500ms of PCM s16le 48kHz stereo — absorbs brief network hiccups
-    const passThrough = new PassThrough({ highWaterMark: 96 * 1024 });
+    const passThrough = new PassThrough({ highWaterMark: 128 * 1024 });
     ffmpegProc.stdout!.pipe(passThrough);
 
     let ytdlpStderr = '';

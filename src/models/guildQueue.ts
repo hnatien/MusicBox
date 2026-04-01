@@ -10,7 +10,6 @@ export interface GuildQueue {
     player: AudioPlayer;
     songs: Song[];
     currentSong: Song | null;
-    volume: number;
     isPlaying: boolean;
     isPaused: boolean;
     playStartTime: number | null;

@@ -29,7 +29,6 @@ export function createQueue(
         player,
         songs: [],
         currentSong: null,
-        volume: config.DEFAULT_VOLUME / 100,
         isPlaying: false,
         isPaused: false,
         playStartTime: null,
