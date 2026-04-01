@@ -57,6 +57,13 @@ const interactionCreateEvent: BotEvent<'interactionCreate'> = {
                         break;
                     }
                     case 'player-skip': {
+                        if (queue.mixContext || (queue.currentSong?.url && (queue.currentSong.url.includes('list=') && !queue.currentSong.url.includes('list=RD')))) {
+                            await interaction.reply({
+                                embeds: [createErrorEmbed('The skip feature is temporarily locked due to an issue, we will fix it soon.')],
+                                ephemeral: true,
+                            });
+                            return;
+                        }
                         musicPlayer.skip(interaction.guildId);
                         await interaction.deferUpdate();
                         break;

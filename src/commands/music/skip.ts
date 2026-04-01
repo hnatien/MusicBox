@@ -30,6 +30,16 @@ const skipCommand: Command = {
             return;
         }
 
+        // Check if the current song is part of a Mix or Playlist
+        // Mixes have mixContext, and Playlists (at least for now) can be detected by url or simply by having queue.songs.length > 0 if we want to be strict
+        if (queue.mixContext || (queue.currentSong.url && (queue.currentSong.url.includes('list=') && !queue.currentSong.url.includes('list=RD')))) {
+            await interaction.reply({
+                embeds: [createErrorEmbed('The skip feature is temporarily locked due to an issue, we will fix it soon.')],
+                ephemeral: true,
+            });
+            return;
+        }
+
         const skippedTitle = queue.currentSong.title;
         musicPlayer.skip(interaction.guildId!);
 
