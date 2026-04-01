@@ -231,7 +231,7 @@ export function startWebServer(client: MusicClient) {
         client.isLocked = enabled;
         if (enabled) {
             client.user?.setPresence({
-                activities: [{ name: '⚠️ Maintenance Mode', type: ActivityType.Watching }],
+                activities: [{ name: '!under maintenance! | back soon', type: ActivityType.Playing }],
                 status: 'dnd',
             });
         } else {

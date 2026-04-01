@@ -42,8 +42,8 @@ const maintenanceCommand: Command = {
 
         if (status) {
             client.user?.setPresence({
-                activities: [{ name: '⚠️ Maintenance Mode', type: ActivityType.Watching }],
-                status: 'dnd'
+                activities: [{ name: '!under maintenance! | back soon', type: ActivityType.Playing }],
+                status: 'dnd',
             });
         } else {
             client.updatePresence();
