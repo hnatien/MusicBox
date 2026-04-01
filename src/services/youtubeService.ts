@@ -25,8 +25,8 @@ const CACHE_TTL_MS = 60 * 60 * 1000;
 const MAX_CACHE_SIZE = 500;
 const metadataCache = new Map<string, CacheEntry>();
 
-const FFMPEG_PROBE_SIZE = 1_048_576;       // 1 MiB — reliable container/codec detection
-const FFMPEG_ANALYZE_DURATION = 5_000_000; // 5 s in µs — matches probe size budget
+const FFMPEG_PROBE_SIZE = 131_072;    // 128 KiB — sufficient for direct CDN stream URLs
+const FFMPEG_ANALYZE_DURATION = 0;    // skip duration analysis on streaming URLs
 
 function cacheSet(key: string, entry: CacheEntry): void {
     if (metadataCache.size >= MAX_CACHE_SIZE) {
@@ -396,7 +396,6 @@ function spawnFfmpegStream(audioUrl: string): Readable {
         '-probesize', String(FFMPEG_PROBE_SIZE),
         '-i', audioUrl,
         '-loglevel', '0',
-        '-af', 'dynaudnorm=f=0.9:s=10',
         '-f', 's16le',
         '-ar', '48000',
         '-ac', '2',
