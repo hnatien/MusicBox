@@ -17,7 +17,6 @@ export interface AudioStreamResult {
 
 interface CacheEntry {
     song: Song;
-    streamUrl?: string;
     expiresAt: number;
 }
 
@@ -235,8 +234,6 @@ export async function getInfoByUrl(url: string, requestedBy: string): Promise<So
         });
     });
 
-    const streamUrl = (result.url as string) || undefined;
-
     const song: Song = {
         title: (result.title as string) ?? 'Unknown Title',
         url: (result.webpage_url as string) ?? url,
@@ -247,7 +244,7 @@ export async function getInfoByUrl(url: string, requestedBy: string): Promise<So
         requestedBy,
     };
 
-    const cacheEntry: CacheEntry = { song, streamUrl, expiresAt: Date.now() + CACHE_TTL_MS };
+    const cacheEntry: CacheEntry = { song, expiresAt: Date.now() + CACHE_TTL_MS };
 
     cacheSet(url, cacheEntry);
     if (song.url !== url) cacheSet(song.url, cacheEntry);
@@ -326,7 +323,7 @@ export async function getAudioStream(url: string): Promise<AudioStreamResult> {
 
     for (let attempt = 1; attempt <= STREAM_RETRY_ATTEMPTS; attempt++) {
         try {
-            const stream = await createYtdlpStream(sanitizedUrl);
+            const stream = createYtdlpStream(sanitizedUrl);
             return { stream };
         } catch (error) {
             lastError = error;
@@ -342,59 +339,22 @@ export async function getAudioStream(url: string): Promise<AudioStreamResult> {
     throw new Error(`Failed to get audio stream after ${STREAM_RETRY_ATTEMPTS} attempts: ${lastError}`);
 }
 
-function resolveAudioUrl(url: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const cookieFlags = getAuthFlags();
+function createYtdlpStream(url: string): Readable {
+    const cookieFlags = getAuthFlags();
 
-        const ytdlpArgs = [
-            url,
-            '-f', 'ba[acodec=opus][abr<=128]/ba[acodec=vorbis][abr<=128]/ba[abr<=160]/ba',
-            '-g',
-            '--no-warnings',
-            '--no-check-certificates',
-            ...cookieFlags,
-        ];
+    const ytdlpArgs = [
+        url,
+        '-f', 'ba[acodec=opus][abr<=128]/ba[acodec=vorbis][abr<=128]/ba[abr<=160]/ba',
+        '-o', '-',
+        '--no-warnings',
+        '--no-check-certificates',
+        ...cookieFlags,
+    ];
 
-        const proc = spawn(ytdlpBinary, ytdlpArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
-
-        const timeout = setTimeout(() => {
-            if (!proc.killed) {
-                proc.kill('SIGKILL');
-                reject(new Error(`yt-dlp stream resolution timed out after ${config.YT_STREAM_TIMEOUT_MS}ms`));
-            }
-        }, config.YT_STREAM_TIMEOUT_MS);
-
-        const stdoutChunks: Buffer[] = [];
-        let stderr = '';
-
-        proc.stdout!.on('data', (d: Buffer) => { stdoutChunks.push(d); });
-        proc.stderr!.on('data', (d: Buffer) => { if (stderr.length < 10_000) stderr += d.toString(); });
-
-        proc.on('close', (code) => {
-            clearTimeout(timeout);
-            const stdout = Buffer.concat(stdoutChunks).toString().trim();
-            if (code !== 0 || !stdout) {
-                reject(new Error(`yt-dlp failed (code ${code}): ${stderr || 'no URL returned'}`));
-                return;
-            }
-            resolve(stdout.split('\n')[0].trim());
-        });
-
-        proc.on('error', (err: Error) => {
-            clearTimeout(timeout);
-            reject(new Error(`Failed to spawn yt-dlp (${ytdlpBinary}): ${err.message}. Ensure it is installed: pip install yt-dlp`));
-        });
-    });
-}
-
-function spawnFfmpegStream(audioUrl: string): Readable {
     const ffmpegArgs = [
-        '-reconnect', '1',
-        '-reconnect_streamed', '1',
-        '-reconnect_delay_max', '5',
+        '-i', 'pipe:0',
         '-analyzeduration', String(FFMPEG_ANALYZE_DURATION),
         '-probesize', String(FFMPEG_PROBE_SIZE),
-        '-i', audioUrl,
         '-loglevel', '0',
         '-f', 's16le',
         '-ar', '48000',
@@ -402,36 +362,71 @@ function spawnFfmpegStream(audioUrl: string): Readable {
         'pipe:1',
     ];
 
-    const ffmpegProc: ChildProcess = spawn(ffmpegBinary, ffmpegArgs, {
-        stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    const ytdlpProc: ChildProcess = spawn(ytdlpBinary, ytdlpArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const ffmpegProc: ChildProcess = spawn(ffmpegBinary, ffmpegArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
 
-    const passThrough = new PassThrough();
-    const stderrChunks: Buffer[] = [];
-    let hasOutput = false;
+    ytdlpProc.stdout!.pipe(ffmpegProc.stdin!);
 
+    // 96 KiB ≈ 500ms of PCM s16le 48kHz stereo — absorbs brief network hiccups
+    const passThrough = new PassThrough({ highWaterMark: 96 * 1024 });
     ffmpegProc.stdout!.pipe(passThrough);
-    ffmpegProc.stdout!.on('data', () => {
-        hasOutput = true;
+
+    let ytdlpStderr = '';
+    const ffmpegStderrChunks: Buffer[] = [];
+
+    ytdlpProc.stderr!.on('data', (d: Buffer) => {
+        if (ytdlpStderr.length < 10_000) ytdlpStderr += d.toString();
+    });
+    ffmpegProc.stderr!.on('data', (d: Buffer) => {
+        if (ffmpegStderrChunks.length < 20) ffmpegStderrChunks.push(d);
     });
 
-    ffmpegProc.stderr!.on('data', (d: Buffer) => {
-        if (stderrChunks.length < 20) {
-            stderrChunks.push(d);
+    // Kill timeout: if FFmpeg produces no output within YT_STREAM_TIMEOUT_MS, abort
+    let hasData = false;
+    const startupTimeout = setTimeout(() => {
+        if (!hasData) {
+            ytdlpProc.kill('SIGKILL');
+            ffmpegProc.kill('SIGKILL');
+            passThrough.destroy(new Error(`Stream startup timed out after ${config.YT_STREAM_TIMEOUT_MS}ms`));
         }
+    }, config.YT_STREAM_TIMEOUT_MS);
+    startupTimeout.unref();
+
+    ffmpegProc.stdout!.once('data', () => {
+        hasData = true;
+        clearTimeout(startupTimeout);
+    });
+
+    ytdlpProc.on('error', (err: Error) => {
+        clearTimeout(startupTimeout);
+        if (!ffmpegProc.killed) ffmpegProc.kill('SIGKILL');
+        passThrough.destroy(new Error(`Failed to spawn yt-dlp (${ytdlpBinary}): ${err.message}`));
+    });
+
+    ffmpegProc.on('error', (err: Error) => {
+        clearTimeout(startupTimeout);
+        passThrough.destroy(err);
     });
 
     ffmpegProc.stdout!.on('error', (err: Error) => {
         passThrough.destroy(err);
     });
 
-    ffmpegProc.on('error', (err: Error) => {
-        passThrough.destroy(err);
+    ytdlpProc.on('close', (code) => {
+        if (code !== 0) {
+            logger.warn(`yt-dlp stream exited with code ${code}: ${ytdlpStderr.trim()}`);
+            // Destroy stdin so FFmpeg gets EOF and exits cleanly rather than hanging
+            if (!ffmpegProc.killed) {
+                ffmpegProc.stdin?.destroy();
+            }
+        }
+        // On success, pipe() already ended ffmpegProc.stdin
     });
 
     ffmpegProc.on('close', (code) => {
-        if (code !== 0 && !hasOutput) {
-            const stderr = Buffer.concat(stderrChunks).toString().trim();
+        clearTimeout(startupTimeout);
+        if (code !== 0) {
+            const stderr = Buffer.concat(ffmpegStderrChunks).toString().trim();
             passThrough.destroy(new Error(`ffmpeg exited with code ${code}: ${stderr || 'unknown error'}`));
             return;
         }
@@ -439,23 +434,9 @@ function spawnFfmpegStream(audioUrl: string): Readable {
     });
 
     passThrough.on('close', () => {
-        if (!ffmpegProc.killed) {
-            ffmpegProc.kill('SIGKILL');
-        }
+        if (!ytdlpProc.killed) ytdlpProc.kill('SIGKILL');
+        if (!ffmpegProc.killed) ffmpegProc.kill('SIGKILL');
     });
 
     return passThrough;
-}
-
-async function createYtdlpStream(url: string): Promise<Readable> {
-    const cached = metadataCache.get(url);
-    if (cached?.streamUrl && cached.expiresAt > Date.now()) {
-        metadataCache.delete(url);
-        metadataCache.set(url, cached);
-        logger.debug(`Stream URL cache hit for: ${url}`);
-        return spawnFfmpegStream(cached.streamUrl);
-    }
-
-    const audioUrl = await resolveAudioUrl(url);
-    return spawnFfmpegStream(audioUrl);
 }
