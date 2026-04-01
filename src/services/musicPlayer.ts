@@ -140,7 +140,7 @@ async function _play(
         queue.activeStream = stream;
 
         const resource = createAudioResource(stream, {
-            inputType: StreamType.Raw,
+            inputType: StreamType.OggOpus,
             inlineVolume: false,
         });
 

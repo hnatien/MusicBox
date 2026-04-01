@@ -358,7 +358,7 @@ function createYtdlpStream(url: string): Readable {
         '-probesize', String(FFMPEG_PROBE_SIZE),
         '-threads', String(FFMPEG_THREADS),
         '-loglevel', '0',
-        '-f', 's16le',
+        '-f', 'opus',
         '-ar', '48000',
         '-ac', '2',
         'pipe:1',
@@ -369,7 +369,7 @@ function createYtdlpStream(url: string): Readable {
 
     ytdlpProc.stdout!.pipe(ffmpegProc.stdin!);
 
-    const passThrough = new PassThrough({ highWaterMark: 128 * 1024 });
+    const passThrough = new PassThrough({ highWaterMark: 1 });
     ffmpegProc.stdout!.pipe(passThrough);
 
     let ytdlpStderr = '';
@@ -381,6 +381,16 @@ function createYtdlpStream(url: string): Readable {
     ffmpegProc.stderr!.on('data', (d: Buffer) => {
         if (ffmpegStderrChunks.length < 20) ffmpegStderrChunks.push(d);
     });
+
+    // Cleanup resources when stream is destroyed or finished
+    const cleanup = () => {
+        if (!ytdlpProc.killed) ytdlpProc.kill('SIGKILL');
+        if (!ffmpegProc.killed) ffmpegProc.kill('SIGKILL');
+        passThrough.destroy();
+    };
+
+    passThrough.on('close', cleanup);
+    passThrough.on('error', cleanup);
 
     // Kill timeout: if FFmpeg produces no output within YT_STREAM_TIMEOUT_MS, abort
     let hasData = false;
