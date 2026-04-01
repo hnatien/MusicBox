@@ -2,7 +2,7 @@ FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 ffmpeg ca-certificates \
+    && apt-get install -y --no-install-recommends python3 ffmpeg ca-certificates build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
@@ -19,7 +19,7 @@ FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 ffmpeg ca-certificates tini fontconfig \
+    && apt-get install -y --no-install-recommends python3 ffmpeg ca-certificates tini fontconfig build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production

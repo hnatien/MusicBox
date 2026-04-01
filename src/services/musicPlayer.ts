@@ -337,7 +337,9 @@ export function setVolume(guildId: string, volume: number): boolean {
     const queue = queueManager.getQueue(guildId);
     if (!queue) return false;
 
-    const normalizedVolume = Math.max(0, Math.min(volume, 100)) / 100;
+    const clamped = Math.max(0, Math.min(volume, 100)) / 100;
+    // Quadratic scaling for perceptual linearity (50% input ≈ 25% amplitude = -12dB)
+    const normalizedVolume = clamped * clamped;
     queue.volume = normalizedVolume;
 
     const resource = queue.player.state.status === AudioPlayerStatus.Playing

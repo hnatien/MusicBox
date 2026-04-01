@@ -1,4 +1,4 @@
-import { ActivityType, Client, Collection, GatewayIntentBits, PresenceUpdateStatus } from 'discord.js';
+import { ActivityType, Client, Collection, GatewayIntentBits, Options, PresenceUpdateStatus } from 'discord.js';
 import type { Command } from '../models/command.js';
 
 export class MusicClient extends Client {
@@ -20,6 +20,9 @@ export class MusicClient extends Client {
     constructor() {
         super({
             intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
+            makeCache: Options.cacheWithLimits({
+                MessageManager: 0,
+            }),
         });
     }
 }

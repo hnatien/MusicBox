@@ -4,6 +4,7 @@ import { YouTube } from 'youtube-sr';
 import type { Song } from '../models/song.js';
 import { logger } from '../core/logger.js';
 import { SEARCH_RESULTS_COUNT, STREAM_RETRY_ATTEMPTS } from '../utils/constants.js';
+import { config } from '../config/environment.js';
 import { formatDuration } from '../utils/formatDuration.js';
 import { isValidYouTubeUrl } from '../utils/validation.js';
 
@@ -20,6 +21,17 @@ interface CacheEntry {
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const MAX_CACHE_SIZE = 500;
 const metadataCache = new Map<string, CacheEntry>();
+
+const FFMPEG_PROBE_SIZE = 1_048_576;       // 1 MiB — reliable container/codec detection
+const FFMPEG_ANALYZE_DURATION = 5_000_000; // 5 s in µs — matches probe size budget
+
+function cacheSet(key: string, entry: CacheEntry): void {
+    if (metadataCache.size >= MAX_CACHE_SIZE) {
+        const oldest = metadataCache.keys().next().value;
+        if (oldest !== undefined) metadataCache.delete(oldest);
+    }
+    metadataCache.set(key, entry);
+}
 
 let ffmpegBinary = process.env.FFMPEG_BINARY?.trim() || 'ffmpeg';
 try {
@@ -110,7 +122,7 @@ async function searchByQueryWithYtdlp(query: string, requestedBy: string): Promi
         let stderr = '';
 
         proc.stdout!.on('data', (d: Buffer) => { stdoutChunks.push(d); });
-        proc.stderr!.on('data', (d: Buffer) => { stderr += d.toString(); });
+        proc.stderr!.on('data', (d: Buffer) => { if (stderr.length < 10_000) stderr += d.toString(); });
 
         proc.on('close', (code) => {
             if (code !== 0) {
@@ -155,6 +167,8 @@ export async function getInfoByUrl(url: string, requestedBy: string): Promise<So
 
     const cached = metadataCache.get(url);
     if (cached && cached.expiresAt > Date.now()) {
+        metadataCache.delete(url);
+        metadataCache.set(url, cached);
         return { ...cached.song, requestedBy };
     }
 
@@ -167,7 +181,7 @@ export async function getInfoByUrl(url: string, requestedBy: string): Promise<So
             '--no-playlist',
             '--no-warnings',
             '--no-check-certificates',
-            '-f', 'ba/ba*',
+            '-f', 'ba[acodec=opus][abr<=128]/ba[acodec=vorbis][abr<=128]/ba[abr<=160]/ba',
             ...cookieFlags,
         ];
 
@@ -178,12 +192,12 @@ export async function getInfoByUrl(url: string, requestedBy: string): Promise<So
         const timeout = setTimeout(() => {
             if (!proc.killed) {
                 proc.kill('SIGKILL');
-                reject(new Error(`yt-dlp metadata timed out after 30s`));
+                reject(new Error(`yt-dlp metadata timed out after ${config.YT_METADATA_TIMEOUT_MS}ms`));
             }
-        }, 30_000);
+        }, config.YT_METADATA_TIMEOUT_MS);
 
         proc.stdout!.on('data', (d: Buffer) => { stdoutChunks.push(d); });
-        proc.stderr!.on('data', (d: Buffer) => { stderr += d.toString(); });
+        proc.stderr!.on('data', (d: Buffer) => { if (stderr.length < 10_000) stderr += d.toString(); });
 
         proc.on('close', (code) => {
             clearTimeout(timeout);
@@ -216,17 +230,10 @@ export async function getInfoByUrl(url: string, requestedBy: string): Promise<So
         requestedBy,
     };
 
-    if (metadataCache.size >= MAX_CACHE_SIZE) {
-        const oldestKey = metadataCache.keys().next().value;
-        if (oldestKey !== undefined) metadataCache.delete(oldestKey);
-    }
-
     const cacheEntry: CacheEntry = { song, streamUrl, expiresAt: Date.now() + CACHE_TTL_MS };
-    metadataCache.set(url, cacheEntry);
 
-    if (song.url !== url) {
-        metadataCache.set(song.url, cacheEntry);
-    }
+    cacheSet(url, cacheEntry);
+    if (song.url !== url) cacheSet(song.url, cacheEntry);
 
     return song;
 }
@@ -252,12 +259,12 @@ export async function getPlaylistInfo(url: string, requestedBy: string): Promise
         const timeout = setTimeout(() => {
             if (!proc.killed) {
                 proc.kill('SIGKILL');
-                reject(new Error(`yt-dlp playlist metadata timed out after 45s`));
+                reject(new Error(`yt-dlp playlist metadata timed out after ${config.YT_PLAYLIST_TIMEOUT_MS}ms`));
             }
-        }, 45_000);
+        }, config.YT_PLAYLIST_TIMEOUT_MS);
 
         proc.stdout!.on('data', (d: Buffer) => { stdoutChunks.push(d); });
-        proc.stderr!.on('data', (d: Buffer) => { stderr += d.toString(); });
+        proc.stderr!.on('data', (d: Buffer) => { if (stderr.length < 10_000) stderr += d.toString(); });
 
         proc.on('close', (code) => {
             clearTimeout(timeout);
@@ -324,7 +331,7 @@ function resolveAudioUrl(url: string): Promise<string> {
 
         const ytdlpArgs = [
             url,
-            '-f', 'ba/ba*',
+            '-f', 'ba[acodec=opus][abr<=128]/ba[acodec=vorbis][abr<=128]/ba[abr<=160]/ba',
             '-g',
             '--no-warnings',
             '--no-check-certificates',
@@ -336,15 +343,15 @@ function resolveAudioUrl(url: string): Promise<string> {
         const timeout = setTimeout(() => {
             if (!proc.killed) {
                 proc.kill('SIGKILL');
-                reject(new Error(`yt-dlp stream resolution timed out after 30s`));
+                reject(new Error(`yt-dlp stream resolution timed out after ${config.YT_STREAM_TIMEOUT_MS}ms`));
             }
-        }, 30_000);
+        }, config.YT_STREAM_TIMEOUT_MS);
 
         const stdoutChunks: Buffer[] = [];
         let stderr = '';
 
         proc.stdout!.on('data', (d: Buffer) => { stdoutChunks.push(d); });
-        proc.stderr!.on('data', (d: Buffer) => { stderr += d.toString(); });
+        proc.stderr!.on('data', (d: Buffer) => { if (stderr.length < 10_000) stderr += d.toString(); });
 
         proc.on('close', (code) => {
             clearTimeout(timeout);
@@ -368,10 +375,11 @@ function spawnFfmpegStream(audioUrl: string): Readable {
         '-reconnect', '1',
         '-reconnect_streamed', '1',
         '-reconnect_delay_max', '5',
-        '-analyzeduration', '0',
-        '-probesize', '32k',
+        '-analyzeduration', String(FFMPEG_ANALYZE_DURATION),
+        '-probesize', String(FFMPEG_PROBE_SIZE),
         '-i', audioUrl,
         '-loglevel', '0',
+        '-af', 'dynaudnorm=f=0.9:s=10',
         '-f', 's16le',
         '-ar', '48000',
         '-ac', '2',
@@ -426,6 +434,8 @@ function spawnFfmpegStream(audioUrl: string): Readable {
 async function createYtdlpStream(url: string): Promise<Readable> {
     const cached = metadataCache.get(url);
     if (cached?.streamUrl && cached.expiresAt > Date.now()) {
+        metadataCache.delete(url);
+        metadataCache.set(url, cached);
         logger.debug(`Stream URL cache hit for: ${url}`);
         return spawnFfmpegStream(cached.streamUrl);
     }

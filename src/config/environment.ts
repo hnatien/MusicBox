@@ -8,6 +8,9 @@ interface EnvironmentConfig {
     DEFAULT_VOLUME: number;
     MAX_QUEUE_SIZE: number;
     INACTIVITY_TIMEOUT: number;
+    YT_METADATA_TIMEOUT_MS: number;
+    YT_PLAYLIST_TIMEOUT_MS: number;
+    YT_STREAM_TIMEOUT_MS: number;
     REDIS: {
         HOST: string;
         PORT: number;
@@ -52,6 +55,9 @@ function validateEnv(): EnvironmentConfig {
         DEFAULT_VOLUME: parseInt(getEnv('DEFAULT_VOLUME') || '50', 10),
         MAX_QUEUE_SIZE: parseInt(getEnv('MAX_QUEUE_SIZE') || '100', 10),
         INACTIVITY_TIMEOUT: parseInt(getEnv('INACTIVITY_TIMEOUT') || '300', 10),
+        YT_METADATA_TIMEOUT_MS: parseInt(getEnv('YT_METADATA_TIMEOUT_MS') || '30000', 10),
+        YT_PLAYLIST_TIMEOUT_MS: parseInt(getEnv('YT_PLAYLIST_TIMEOUT_MS') || '45000', 10),
+        YT_STREAM_TIMEOUT_MS: parseInt(getEnv('YT_STREAM_TIMEOUT_MS') || '30000', 10),
         REDIS: {
             HOST: host,
             PORT: port,
