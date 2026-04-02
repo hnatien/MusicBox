@@ -248,8 +248,11 @@ export function pause(guildId: string): boolean {
   if (queue.nowPlayingMessage && queue.currentSong) {
     let elapsedSeconds = 0;
     if (queue.player.state.status === AudioPlayerStatus.Paused) {
-      const state = queue.player.state as AudioPlayerPlayingState;
-      elapsedSeconds = Math.floor(state.resource.playbackDuration / 1000);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const state = queue.player.state as any;
+      if (state.resource) {
+        elapsedSeconds = Math.floor(state.resource.playbackDuration / 1000);
+      }
     }
     const result = createNowPlayingEmbed(
       queue.currentSong,
