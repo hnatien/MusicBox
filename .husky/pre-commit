@@ -1,1 +1,2 @@
-npm run build && npm run lint
+npm run lint || exit 1
+git diff --name-only | xargs -r git add
