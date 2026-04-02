@@ -49,9 +49,10 @@ const CACHE_TTL_MS = 60 * 60 * 1000;
 const MAX_CACHE_SIZE = 500;
 const metadataCache = new Map<string, CacheEntry>();
 
-const FFMPEG_PROBE_SIZE = 128_000;
+const FFMPEG_PROBE_SIZE = 32_000;
 const FFMPEG_ANALYZE_DURATION = 0;
-const FFMPEG_THREADS = 1;
+const FFMPEG_THREADS = 0; // Use auto-threads for better performance on high-load
+const PASS_THROUGH_BUFFER_SIZE = 16 * 1024; // 16KB: Balance between startup latency and jitter protection
 
 function cacheSet(key: string, entry: CacheEntry): void {
   if (metadataCache.size >= MAX_CACHE_SIZE) {
@@ -401,8 +402,11 @@ function createYtdlpStream(url: string): Readable {
     'ba[acodec=opus][abr<=128]/ba[acodec=vorbis][abr<=128]/ba[abr<=160]/ba',
     '-o',
     '-',
+    '--no-playlist',
     '--no-warnings',
     '--no-check-certificates',
+    '--buffer-size',
+    '16K',
     ...cookieFlags,
   ];
 
@@ -415,14 +419,28 @@ function createYtdlpStream(url: string): Readable {
     String(FFMPEG_PROBE_SIZE),
     '-threads',
     String(FFMPEG_THREADS),
-    '-loglevel',
-    '0',
+    '-vn',
+    '-map',
+    'a',
+    '-acodec',
+    'libopus',
     '-f',
     'opus',
     '-ar',
     '48000',
     '-ac',
     '2',
+    '-b:a',
+    '128k',
+    '-vbr',
+    'on', // Variable Bitrate for efficiency
+    '-application',
+    'audio', // Optimize for music quality (full bandwidth)
+    '-copyts',
+    '-avoid_negative_ts',
+    'make_zero',
+    '-loglevel',
+    '0',
     'pipe:1',
   ];
 
@@ -435,7 +453,7 @@ function createYtdlpStream(url: string): Readable {
 
   ytdlpProc.stdout!.pipe(ffmpegProc.stdin!);
 
-  const passThrough = new PassThrough({ highWaterMark: 1 });
+  const passThrough = new PassThrough({ highWaterMark: PASS_THROUGH_BUFFER_SIZE });
   ffmpegProc.stdout!.pipe(passThrough);
 
   let ytdlpStderr = '';
@@ -448,22 +466,23 @@ function createYtdlpStream(url: string): Readable {
     if (ffmpegStderrChunks.length < 20) ffmpegStderrChunks.push(d);
   });
 
-  // Cleanup resources when stream is destroyed or finished
   const cleanup = () => {
     if (!ytdlpProc.killed) ytdlpProc.kill('SIGKILL');
     if (!ffmpegProc.killed) ffmpegProc.kill('SIGKILL');
-    passThrough.destroy();
+    if (!passThrough.destroyed) passThrough.destroy();
   };
 
   passThrough.on('close', cleanup);
-  passThrough.on('error', cleanup);
+  passThrough.on('error', (err) => {
+    logger.error('Audio PassThrough error:', err);
+    cleanup();
+  });
 
   // Kill timeout: if FFmpeg produces no output within YT_STREAM_TIMEOUT_MS, abort
   let hasData = false;
   const startupTimeout = setTimeout(() => {
     if (!hasData) {
-      ytdlpProc.kill('SIGKILL');
-      ffmpegProc.kill('SIGKILL');
+      cleanup();
       passThrough.destroy(
         new Error(`Stream startup timed out after ${config.YT_STREAM_TIMEOUT_MS}ms`),
       );
@@ -478,45 +497,42 @@ function createYtdlpStream(url: string): Readable {
 
   ytdlpProc.on('error', (err: Error) => {
     clearTimeout(startupTimeout);
-    if (!ffmpegProc.killed) ffmpegProc.kill('SIGKILL');
+    cleanup();
     passThrough.destroy(new Error(`Failed to spawn yt-dlp (${ytdlpBinary}): ${err.message}`));
   });
 
   ffmpegProc.on('error', (err: Error) => {
     clearTimeout(startupTimeout);
+    cleanup();
     passThrough.destroy(err);
   });
 
   ffmpegProc.stdout!.on('error', (err: Error) => {
+    cleanup();
     passThrough.destroy(err);
   });
 
   ytdlpProc.on('close', (code) => {
     if (code !== 0) {
       logger.warn(`yt-dlp stream exited with code ${code}: ${ytdlpStderr.trim()}`);
-      // Destroy stdin so FFmpeg gets EOF and exits cleanly rather than hanging
       if (!ffmpegProc.killed) {
         ffmpegProc.stdin?.destroy();
       }
     }
-    // On success, pipe() already ended ffmpegProc.stdin
   });
 
   ffmpegProc.on('close', (code) => {
     clearTimeout(startupTimeout);
     if (code !== 0) {
       const stderr = Buffer.concat(ffmpegStderrChunks).toString().trim();
-      passThrough.destroy(
-        new Error(`ffmpeg exited with code ${code}: ${stderr || 'unknown error'}`),
-      );
+      if (!passThrough.destroyed) {
+        passThrough.destroy(
+          new Error(`ffmpeg exited with code ${code}: ${stderr || 'unknown error'}`),
+        );
+      }
       return;
     }
-    passThrough.end();
-  });
-
-  passThrough.on('close', () => {
-    if (!ytdlpProc.killed) ytdlpProc.kill('SIGKILL');
-    if (!ffmpegProc.killed) ffmpegProc.kill('SIGKILL');
+    if (!passThrough.destroyed) passThrough.end();
   });
 
   return passThrough;
