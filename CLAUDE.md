@@ -21,12 +21,24 @@ Vitest is configured but no tests exist yet. There is no single-test runner comm
 
 ## Required Environment Variables
 
-Copy `.env.example` and populate:
-- `DISCORD_TOKEN` — bot token (required)
-- `CLIENT_ID` — application client ID (required)
-- `DEV_GUILD_ID` — set for guild-specific command deployment during development
-- `YOUTUBE_COOKIE` — optional, bypasses YouTube rate limits
-- `FFMPEG_BINARY` — optional, defaults to auto-detecting ffmpeg-static or system ffmpeg
+All config is validated at startup in `src/config/environment.ts` and exported as `config`. Copy `.env.example` and populate:
+
+**Required:**
+- `DISCORD_TOKEN` — bot token
+- `CLIENT_ID` — application client ID
+
+**Redis** (defaults to `localhost:6379`):
+- `REDISHOST` / `REDISPORT` / `REDISUSER` / `REDISPASSWORD` (or `REDIS_PASSWORD`)
+
+**Optional:**
+- `DEV_GUILD_ID` — guild-specific command deployment during development
+- `YOUTUBE_COOKIE` — bypasses YouTube rate limits
+- `FFMPEG_BINARY` — defaults to auto-detecting ffmpeg-static or system ffmpeg
+- `ADMIN_IDS` — comma-separated Discord user IDs for admin panel access
+- `CLIENT_SECRET` / `ADMIN_REDIRECT_URI` — Discord OAuth for admin panel login
+- `PORT` — web server port (default `3000`)
+- `LOG_LEVEL` — winston log level (default `info`)
+- `DEFAULT_VOLUME`, `MAX_QUEUE_SIZE`, `INACTIVITY_TIMEOUT`, `YT_METADATA_TIMEOUT_MS`, `YT_PLAYLIST_TIMEOUT_MS`, `YT_STREAM_TIMEOUT_MS` — tuneable defaults
 
 ## Architecture
 
@@ -51,13 +63,19 @@ Each event file is a default export implementing `BotEvent<K extends keyof Clien
 ```
 
 ### Service Layer
-Three services manage all stateful music logic:
 
 **`queueManager.ts`** — owns per-guild state (Map of guildId → GuildQueue). GuildQueue holds: songs array, current song, VoiceConnection, AudioPlayer, volume, inactivity timer, and Mix context.
 
 **`musicPlayer.ts`** — handles voice connection creation, AudioResource creation, playback loop (`play()` auto-advances on `AudioPlayer Idle`), progress updates (15s interval), and inactivity auto-disconnect.
 
 **`youtubeService.ts`** — YouTube search (youtube-sr with yt-dlp fallback), metadata extraction via yt-dlp subprocess, metadata LRU cache (60min TTL, 500 entries), and audio stream delivery via yt-dlp → FFmpeg pipeline in PCM S16LE 48kHz format.
+
+**`database.ts`** — Redis client singleton (`database`). Stores: `totalSongsPlayed` counter and `session:<sid>` keys (TTL-backed admin sessions). Degrades gracefully when Redis is unavailable.
+
+**`webServer.ts`** — Express server serving `public/` static files plus:
+- `GET /health`, `GET /api/stats` — public endpoints
+- `GET /admin/login|callback|logout` — Discord OAuth flow (requires `CLIENT_SECRET` + `ADMIN_REDIRECT_URI`)
+- `GET /api/admin/stats`, `POST /api/admin/maintenance` — protected by `mb_admin_sid` cookie session; only users in `ADMIN_IDS` can log in
 
 ### Key Data Flow: Playing a Song
 ```
@@ -79,7 +97,9 @@ Run `npm run deploy-commands` separately from the bot. When `DEV_GUILD_ID` is se
 
 ## Key Constants & Utilities
 
-- `src/utils/constants.ts` — embed colors (`PRIMARY`, `SUCCESS`, `WARNING`, `ERROR`, `NOW_PLAYING`), emoji strings, `MAX_QUEUE_SIZE`, `INACTIVITY_TIMEOUT`
+- `src/config/environment.ts` — single source of truth for all runtime config; import `config` from here
+- `src/core/logger.ts` — Winston logger; use `logger.info/warn/error()` instead of `console.log`
+- `src/utils/constants.ts` — embed colors (`PRIMARY`, `SUCCESS`, `WARNING`, `ERROR`, `NOW_PLAYING`), emoji strings
 - `src/utils/embed.ts` — all Discord embed builders (9 functions); use these instead of constructing raw embeds
 - `src/utils/validation.ts` — regex-based YouTube URL/playlist/mix detection
 

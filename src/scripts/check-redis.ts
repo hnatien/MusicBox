@@ -2,26 +2,26 @@ import { createClient } from 'redis';
 import 'dotenv/config';
 
 async function check() {
-    const url = process.env.REDIS_URL || 'redis://localhost:6379';
-    console.log(`🔍 Đang kiểm tra Redis tại: ${url.replace(/:[^:@]+@/, ':****@')}`);
-    
-    const client = createClient({ url });
-    client.on('error', (err) => console.error('❌ Lỗi kết nối Redis:', err.message));
+  const url = process.env.REDIS_URL || 'redis://localhost:6379';
+  console.log(`🔍 Đang kiểm tra Redis tại: ${url.replace(/:[^:@]+@/, ':****@')}`);
 
-    try {
-        await client.connect();
-        console.log('✅ Đã kết nối thành công!');
+  const client = createClient({ url });
+  client.on('error', (err) => console.error('❌ Lỗi kết nối Redis:', err.message));
 
-        const keys = await client.keys('*');
-        console.log('📋 Danh sách keys:', keys);
+  try {
+    await client.connect();
+    console.log('✅ Đã kết nối thành công!');
 
-        const totalSongs = await client.get('totalSongsPlayed');
-        console.log('🎵 totalSongsPlayed:', totalSongs || 'Chưa có dữ liệu (null)');
+    const keys = await client.keys('*');
+    console.log('📋 Danh sách keys:', keys);
 
-        await client.disconnect();
-    } catch (error: any) {
-        console.error('❌ Thất bại:', error.message);
-    }
+    const totalSongs = await client.get('totalSongsPlayed');
+    console.log('🎵 totalSongsPlayed:', totalSongs || 'Chưa có dữ liệu (null)');
+
+    await client.disconnect();
+  } catch (error) {
+    console.error('❌ Thất bại:', error instanceof Error ? error.message : String(error));
+  }
 }
 
 check();

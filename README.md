@@ -38,7 +38,7 @@ npm install
 
 # 2. Configure environment
 cp .env.example .env
-# Edit .env — set DISCORD_TOKEN, CLIENT_ID, and REDIS_URL at minimum
+# Edit .env — set DISCORD_TOKEN, CLIENT_ID, and Redis connection vars at minimum
 
 # 3. Register slash commands
 npm run deploy-commands
@@ -49,19 +49,26 @@ npm run dev
 
 ## Configuration
 
+<!-- AUTO-GENERATED: from .env.example -->
 | Variable | Required | Default | Description |
 |---|:---:|:---:|---|
 | `DISCORD_TOKEN` | ✅ | — | Bot token from Discord Developer Portal |
 | `CLIENT_ID` | ✅ | — | Application client ID |
-| `REDIS_URL` | ✅ | — | Redis connection URI (e.g. `redis://localhost:6379`) |
+| `REDISHOST` | — | `localhost` | Redis server hostname |
+| `REDISPORT` | — | `6379` | Redis server port |
+| `REDISUSER` | — | — | Redis username (if auth required) |
+| `REDISPASSWORD` / `REDIS_PASSWORD` | — | — | Redis password (if auth required) |
 | `DEV_GUILD_ID` | — | — | Guild ID for instant command updates during development |
-| `ADMIN_IDS` | — | — | Comma-separated list of Discord user IDs for restricted commands |
+| `ADMIN_IDS` | — | — | Comma-separated Discord user IDs for admin panel access |
+| `CLIENT_SECRET` | — | — | Discord application secret for OAuth admin login |
+| `ADMIN_REDIRECT_URI` | — | — | OAuth redirect URI (e.g. `https://yourhost/admin/callback`) |
 | `PORT` | — | `3000` | Port for the internal web server |
 | `LOG_LEVEL` | — | `info` | Logging detail: `debug` · `info` · `warn` · `error` |
 | `DEFAULT_VOLUME` | — | `50` | Initial playback volume (1–100) |
 | `MAX_QUEUE_SIZE` | — | `100` | Max songs per guild queue |
 | `INACTIVITY_TIMEOUT` | — | `300` | Seconds before auto-disconnect |
 | `YOUTUBE_COOKIE` | — | — | Cookie string to bypass YouTube rate limits |
+<!-- END AUTO-GENERATED -->
 
 ## Commands
 
@@ -88,6 +95,7 @@ npm run dev
 
 ## Scripts
 
+<!-- AUTO-GENERATED: from package.json scripts -->
 | Command | Description |
 |---|---|
 | `npm run dev` | Start with hot reload (development via tsx) |
@@ -96,6 +104,10 @@ npm run dev
 | `npm run deploy-commands` | Register slash commands global or per-guild |
 | `npm run lint` | ESLint with auto-fix |
 | `npm run format` | Prettier code formatting |
+| `npm test` | Run unit tests with Vitest |
+| `npm run test:watch` | Run tests in watch mode |
+| `npm run test:coverage` | Run tests with coverage report |
+<!-- END AUTO-GENERATED -->
 
 ## Docker
 

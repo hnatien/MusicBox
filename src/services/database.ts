@@ -8,7 +8,7 @@ class RedisDatabase {
 
   constructor() {
     logger.info(`Initializing Redis connection to: ${config.REDIS.HOST}:${config.REDIS.PORT}`);
-    this.client = createClient({ 
+    this.client = createClient({
       url: config.REDIS.URL,
       socket: {
         reconnectStrategy: (retries) => {
@@ -18,8 +18,8 @@ class RedisDatabase {
           }
           const delay = Math.min(retries * 500, 5000);
           return delay;
-        }
-      }
+        },
+      },
     });
 
     this.client.on('error', (err) => {
@@ -47,13 +47,18 @@ class RedisDatabase {
     if (this.client.isOpen) return;
     if (this.connectPromise) return this.connectPromise;
 
-    this.connectPromise = this.client.connect().then(() => {}).catch((error: any) => {
-      if (error.message !== 'Socket already opened') {
-        logger.error('Failed to connect to Redis', { message: error.message });
-      }
-    }).finally(() => {
-      this.connectPromise = null;
-    });
+    this.connectPromise = this.client
+      .connect()
+      .then(() => {})
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message !== 'Socket already opened') {
+          logger.error('Failed to connect to Redis', { message });
+        }
+      })
+      .finally(() => {
+        this.connectPromise = null;
+      });
 
     return this.connectPromise;
   }
@@ -79,7 +84,7 @@ class RedisDatabase {
     try {
       await this.connect();
       if (!this.client.isOpen) return 0;
-      
+
       const count = await this.client.get('totalSongsPlayed');
       return count ? parseInt(count, 10) : 0;
     } catch (error) {
