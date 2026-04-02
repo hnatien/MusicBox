@@ -14,7 +14,7 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src/ --fix",
     "format": "prettier --write src/",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "keywords": [
     "discord",
